@@ -1,16 +1,100 @@
-.menu-btn {
-  width: 100%;
-  text-align: left;
-  padding: 10px;
-  border-radius: 8px;
-  background: transparent;
+/* GBY Driver responsive layout fixes */
+
+/* Prevent accidental horizontal scroll on mobile */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
-.menu-btn:hover {
-  background: #1e293b;
+/* Better mobile tap behavior */
+button,
+select,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
 }
 
-.topic-item:hover {
-  background: #334155;
-  transition: 0.2s;
+/* Mobile bottom navigation */
+@media (max-width: 767px) {
+  #sidebar {
+    height: 72px;
+  }
+
+  #sidebar .nav-btn {
+    min-height: 52px;
+    padding: 8px 4px !important;
+    text-align: center !important;
+    font-size: 11px;
+    line-height: 1.15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+  }
+
+  #sidebar .nav-btn .label {
+    display: block;
+    max-width: 100%;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #content {
+    min-height: calc(100vh - 72px);
+  }
+
+  /* Forms feel less cramped on phones */
+  #content input,
+  #content select,
+  #content textarea,
+  #content button {
+    font-size: 16px;
+  }
+
+  /* Tables should not break phone layout */
+  #content table {
+    min-width: 720px;
+  }
+
+  #content .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Settings cards/lists: actions do not fly away on mobile */
+  #instrList > div,
+  #usersList > div,
+  #groupsList > div {
+    gap: 10px;
+  }
+
+  #instrList button,
+  #usersList button,
+  #groupsList button {
+    min-height: 38px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  #instrList .flex,
+  #usersList .flex,
+  #groupsList .flex {
+    flex-wrap: wrap;
+  }
+
+  /* Modals on small screens */
+  .fixed .max-w-6xl,
+  .fixed .max-w-md {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* Desktop keeps old sidebar behavior */
+@media (min-width: 768px) {
+  #sidebar.w-20 .nav-btn {
+    text-align: center !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
 }
