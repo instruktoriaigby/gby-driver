@@ -1,0 +1,16 @@
+.menu-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.menu-btn:hover {
+  background: #1e293b;
+}
+
+.topic-item:hover {
+  background: #334155;
+  transition: 0.2s;
+}

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>GBY Driver</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+
+  <meta name="theme-color" content="#020617">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- iOS / Safari PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GBY Driver">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+
+<body class="bg-slate-900 text-white flex">
+
+  <div class="fixed top-4 right-4 z-50 flex gap-2">
+    <button id="logoutBtn"
+      class="hidden bg-slate-800 text-white px-3 py-1 rounded border border-slate-600">
+      Atsijungti
+    </button>
+
+    <select id="langSwitcher"
+      class="bg-slate-800 text-white px-3 py-1 rounded border border-slate-600">
+      <option value="lt">LT</option>
+      <option value="en">EN</option>
+      <option value="ru">RU</option>
+    </select>
+  </div>
+
+  <div id="sidebar"
+    class="w-64 bg-slate-950 min-h-screen p-4 flex flex-col justify-between transition-all duration-300 shrink-0">
+
+    <div>
+      <div class="flex items-center justify-between px-3 mb-4">
+        <img src="./Logo_GBY.jpg" id="logoText" class="h-8 object-contain" />
+        <button id="toggleSidebar" class="bg-slate-800 px-2 py-1 rounded text-sm">☰</button>
+      </div>
+
+      <div class="space-y-2">
+        <button data-page="dashboard" class="nav-btn w-full text-left px-4 py-2 rounded bg-blue-600">
+          <span class="label" data-i18n="nav.dashboard">Pagrindinis</span>
+        </button>
+
+        <button data-page="defektas" class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800">
+          <span class="label" data-i18n="nav.defects">Defektai</span>
+        </button>
+
+        <button data-page="instrukcijos" class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800">
+          <span class="label" data-i18n="nav.instructions">Instrukcijos</span>
+        </button>
+
+        <button data-page="uzduotys" class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800">
+          <span class="label" data-i18n="nav.tasks">Užduotys</span>
+        </button>
+
+        <button data-page="nustatymai" class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800">
+          <span class="label" data-i18n="nav.settings">Nustatymai</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="content" class="flex-1 p-8 transition-all duration-300">
+    <div class="text-slate-400" data-i18n="common.loading">Kraunama...</div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
