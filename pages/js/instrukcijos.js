@@ -9,6 +9,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
   const currentLang = localStorage.getItem('lang') || profile?.lang || 'lt';
   const role = profile?.role || 'driver';
+
   let currentTab = 'general';
   let instructions = [];
 
@@ -55,15 +56,41 @@ export async function initInstrukcijos({ supabase, user, profile }) {
     instructions = (data || []).map(normalizeInstruction);
   }
 
+  function isGoogleDriveUrl(value) {
+    return /drive\.google\.com/i.test(String(value || ''));
+  }
+
+  function getGoogleDrivePreviewUrl(value) {
+    const raw = String(value || '').trim();
+
+    const driveMatch =
+      raw.match(/drive\.google\.com\/file\/d\/([^/]+)/i) ||
+      raw.match(/[?&]id=([^&]+)/i);
+
+    if (driveMatch) {
+      return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+    }
+
+    return raw;
+  }
+
   function getEmbedUrl(videoValue) {
     const value = String(videoValue || '').trim();
+
     if (!value) return '';
+
+    if (isGoogleDriveUrl(value)) {
+      return getGoogleDrivePreviewUrl(value);
+    }
 
     if (/player\.vimeo\.com\/video\/(\d+)/i.test(value)) {
       return value;
     }
 
-    const vimeoMatch = value.match(/vimeo\.com\/(\d+)/i) || value.match(/^(\d+)$/);
+    const vimeoMatch =
+      value.match(/vimeo\.com\/(\d+)/i) ||
+      value.match(/^(\d+)$/);
+
     if (vimeoMatch) {
       return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
     }
@@ -75,14 +102,6 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
     if (ytMatch) {
       return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    }
-
-    const driveMatch =
-      value.match(/drive\.google\.com\/file\/d\/([^/]+)/i) ||
-      value.match(/[?&]id=([^&]+)/i);
-
-    if (driveMatch) {
-      return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
     }
 
     if (/^https?:\/\//i.test(value)) {
@@ -99,9 +118,9 @@ export async function initInstrukcijos({ supabase, user, profile }) {
   function fillSearchSuggestions() {
     if (!searchList) return;
 
-    searchList.innerHTML = langInstructions().map(item =>
-      `<option value="${escapeHtml(item.title)}"></option>`
-    ).join('');
+    searchList.innerHTML = langInstructions()
+      .map(item => `<option value="${escapeHtml(item.title)}"></option>`)
+      .join('');
   }
 
   function getVisibleInstructions() {
@@ -126,24 +145,39 @@ export async function initInstrukcijos({ supabase, user, profile }) {
     }
 
     container.innerHTML = list.map(item => `
-      <div class="topic bg-slate-800 p-4 rounded-xl cursor-pointer hover:bg-slate-700"
-        data-id="${item.id}">
-
-        <div class="flex justify-between items-center gap-4">
-          <div>
-            <div class="font-semibold">${escapeHtml(item.title)}</div>
-            <div class="text-sm text-slate-400">${escapeHtml(item.description || '')}</div>
+      <div
+        class="topic instruction-card bg-slate-800 p-4 rounded-xl border border-slate-700 overflow-hidden"
+        data-id="${item.id}"
+      >
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          <div class="min-w-0">
+            <div class="font-semibold break-words">${escapeHtml(item.title)}</div>
+            <div class="text-sm text-slate-400 break-words">${escapeHtml(item.description || '')}</div>
           </div>
 
-          <div class="flex gap-2 shrink-0">
-            ${item.pdf ? `<button class="cheat-btn bg-slate-700 px-3 py-1 rounded">${t('common.cheat_sheet')}</button>` : ''}
-            ${role === 'instructor' || role === 'admin' ? `<button class="edit-btn bg-yellow-600 px-2 py-1 rounded text-xs">✏️</button>` : ''}
-            ${role === 'instructor' || role === 'admin' ? `<button class="delete-btn bg-red-600 px-2 py-1 rounded text-xs">🗑</button>` : ''}
+          <div class="instruction-actions flex flex-wrap gap-2 shrink-0">
+            ${role === 'instructor' || role === 'admin' ? `
+              <button class="edit-btn bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg text-xs">
+                ✏️
+              </button>
+            ` : ''}
+
+            ${role === 'instructor' || role === 'admin' ? `
+              <button class="delete-btn bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg text-xs">
+                🗑
+              </button>
+            ` : ''}
+
+            <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg text-xs font-semibold">
+              Atidaryti
+            </button>
           </div>
         </div>
 
-        <div class="topic-content hidden mt-4 bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-3"
-          id="content-${item.id}">
+        <div
+          class="topic-content hidden mt-4 bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-700 space-y-3 overflow-hidden"
+          id="content-${item.id}"
+        >
         </div>
       </div>
     `).join('');
@@ -158,9 +192,38 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       </div>
     `;
 
-    const embedUrl = getEmbedUrl(instr.video);
+    const rawVideoUrl = String(instr.video || '').trim();
+    const embedUrl = getEmbedUrl(rawVideoUrl);
+    const isDriveVideo = rawVideoUrl && isGoogleDriveUrl(rawVideoUrl);
 
-    if (embedUrl) {
+    if (isDriveVideo) {
+      html += `
+        <div class="drive-video-block mt-3">
+          <div class="drive-video-desktop">
+            <div class="instruction-video-box">
+              <iframe
+                class="instruction-video-frame"
+                src="${escapeHtml(getGoogleDrivePreviewUrl(rawVideoUrl))}"
+                loading="lazy"
+                frameborder="0"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+
+          <a
+            href="${escapeHtml(rawVideoUrl)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="drive-video-mobile-button"
+          >
+            <span class="drive-video-play">▶</span>
+            <span>Atidaryti / padidinti video</span>
+          </a>
+        </div>
+      `;
+    } else if (embedUrl) {
       html += `
         <div class="instruction-video-box mt-3">
           <iframe
@@ -244,6 +307,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
   async function deleteInstruction(id) {
     const confirmed = confirm('Ar tikrai ištrinti instrukciją?');
+
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -270,10 +334,12 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
   container.addEventListener('click', async (e) => {
     const topic = e.target.closest('.topic');
+
     if (!topic) return;
 
     const id = topic.dataset.id;
     const instr = instructions.find(item => String(item.id) === String(id));
+
     if (!instr) return;
 
     if (e.target.closest('.delete-btn')) {
@@ -289,19 +355,22 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       return;
     }
 
-    if (e.target.closest('.cheat-btn')) {
-      e.stopPropagation();
-      if (instr.pdf) window.open(instr.pdf, '_blank');
+    if (!e.target.closest('.open-topic-btn')) {
       return;
     }
 
     const content = document.getElementById(`content-${id}`);
 
+    if (!content) return;
+
     document.querySelectorAll('.topic-content').forEach(el => {
-      if (el !== content) el.classList.add('hidden');
+      if (el !== content) {
+        el.classList.add('hidden');
+      }
     });
 
     const isOpen = !content.classList.contains('hidden');
+
     content.classList.toggle('hidden');
 
     if (isOpen) return;
@@ -319,6 +388,8 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       });
 
       btn.classList.add('bg-blue-600');
+      btn.classList.remove('bg-slate-800');
+
       renderList();
     };
   });
