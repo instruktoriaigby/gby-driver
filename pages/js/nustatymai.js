@@ -1154,50 +1154,210 @@ export async function initNustatymai({ supabase, user, profile }) {
     alert('Instrukcija išsaugota!');
   });
 
+  let dashboardImages = [];
+
+  function getDashboardImageUrl(img) {
+    if (img?.image_url) return img.image_url;
+
+    if (img?.file_path) {
+      const { data } = supabase
+        .storage
+        .from('dashboard-images')
+        .getPublicUrl(img.file_path);
+
+      return data?.publicUrl || '';
+    }
+
+    return '';
+  }
+
+  async function loadDashboardImages() {
+    if (!isAdmin) return;
+
+    const { data, error } = await supabase
+      .from('dashboard_images')
+      .select('id, image_url, file_path, title, sort_order, is_active, created_at')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Dashboard images load error:', error);
+      dashboardImages = [];
+      return;
+    }
+
+    dashboardImages = data || [];
+  }
+
   function renderDashboardPreview() {
     const preview = document.getElementById('dashboardPreview');
     if (!preview) return;
 
-    const images = JSON.parse(localStorage.getItem('dashboardImages') || '[]');
+    if (!dashboardImages.length) {
+      preview.innerHTML = `<div class="text-slate-400 text-sm">Dashboard paveikslėlių nėra</div>`;
+      return;
+    }
 
-    preview.innerHTML = images.map(img => `
-      <div class="bg-slate-800 rounded overflow-hidden">
-        <img src="${img}" class="w-full h-auto" />
-      </div>
-    `).join('');
+    preview.innerHTML = dashboardImages.map(img => {
+      const imageUrl = getDashboardImageUrl(img);
+
+      if (!imageUrl) return '';
+
+      return `
+        <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+          <img
+            src="${imageUrl}"
+            class="w-full h-auto block select-none pointer-events-none"
+            draggable="false"
+            alt=""
+          >
+        </div>
+      `;
+    }).join('');
   }
 
+  function getSafeFileName(fileName) {
+    return String(fileName || 'dashboard.jpg')
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'dashboard.jpg';
+  }
+
+  async function removeOldDashboardFiles() {
+    const filePaths = dashboardImages
+      .map(img => img.file_path)
+      .filter(Boolean);
+
+    if (!filePaths.length) return;
+
+    const { error } = await supabase
+      .storage
+      .from('dashboard-images')
+      .remove(filePaths);
+
+    if (error) {
+      console.warn('Old dashboard files remove skipped:', error);
+    }
+  }
+
+  await loadDashboardImages();
   renderDashboardPreview();
 
-  document.getElementById('saveDashboardImages')?.addEventListener('click', () => {
+  document.getElementById('saveDashboardImages')?.addEventListener('click', async () => {
     if (!isAdmin) return;
 
-    const files = document.getElementById('dashboardUpload').files;
+    const input = document.getElementById('dashboardUpload');
+    const files = Array.from(input?.files || []);
 
     if (!files.length) {
       alert('Pasirink JPEG');
       return;
     }
 
-    let images = [];
-    let loaded = 0;
+    if (files.length > 3) {
+      alert('Galima įkelti iki 3 paveikslėlių');
+      return;
+    }
 
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-
-      reader.onload = e => {
-        images.push(e.target.result);
-        loaded++;
-
-        if (loaded === files.length) {
-          localStorage.setItem('dashboardImages', JSON.stringify(images));
-          renderDashboardPreview();
-          alert('Dashboard atnaujintas!');
-          window.navigateTo('dashboard');
-        }
-      };
-
-      reader.readAsDataURL(file);
+    const invalidFile = files.find(file => {
+      const name = file.name.toLowerCase();
+      return !file.type.includes('jpeg') && !name.endsWith('.jpg') && !name.endsWith('.jpeg');
     });
+
+    if (invalidFile) {
+      alert('Galima kelti tik JPG / JPEG failus');
+      return;
+    }
+
+    const saveBtn = document.getElementById('saveDashboardImages');
+    const originalText = saveBtn?.textContent || 'Išsaugoti dashboard';
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.classList.add('opacity-60', 'cursor-not-allowed');
+      saveBtn.textContent = 'Saugoma...';
+    }
+
+    try {
+      await removeOldDashboardFiles();
+
+      const { error: deleteError } = await supabase
+        .from('dashboard_images')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (deleteError) {
+        console.error('Dashboard delete error:', deleteError);
+        alert('Nepavyko išvalyti senų dashboard paveikslėlių');
+        return;
+      }
+
+      const rows = [];
+
+      for (const [index, file] of files.entries()) {
+        const safeName = getSafeFileName(file.name);
+        const filePath = `${currentUser.id}/${Date.now()}-${index}-${safeName}`;
+
+        const { error: uploadError } = await supabase
+          .storage
+          .from('dashboard-images')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            contentType: file.type || 'image/jpeg',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Dashboard upload error:', uploadError);
+          alert('Nepavyko įkelti dashboard paveikslėlio į Storage');
+          return;
+        }
+
+        const { data: publicData } = supabase
+          .storage
+          .from('dashboard-images')
+          .getPublicUrl(filePath);
+
+        rows.push({
+          image_url: publicData?.publicUrl || null,
+          file_path: filePath,
+          title: `Dashboard ${index + 1}`,
+          sort_order: index,
+          is_active: true,
+          created_by: currentUser.id
+        });
+      }
+
+      const { error: insertError } = await supabase
+        .from('dashboard_images')
+        .insert(rows);
+
+      if (insertError) {
+        console.error('Dashboard insert error:', insertError);
+        alert('Nepavyko išsaugoti dashboard paveikslėlių');
+        return;
+      }
+
+      if (input) input.value = '';
+
+      await loadDashboardImages();
+      renderDashboardPreview();
+
+      alert('Dashboard atnaujintas!');
+      window.navigateTo('dashboard');
+
+    } catch (err) {
+      console.error('Dashboard save error:', err);
+      alert(err?.message || 'Dashboard išsaugojimo klaida');
+
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        saveBtn.textContent = originalText;
+      }
+    }
   });
 }

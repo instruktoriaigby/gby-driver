@@ -152,15 +152,21 @@ export async function initInstrukcijos({ supabase, user, profile }) {
   function renderInstructionContent(instr) {
     if (!instr) return t('common.no_instructions');
 
-    let html = `<div>${escapeHtml(instr.description || '')}</div>`;
+    let html = `
+      <div class="text-slate-200 break-words">
+        ${escapeHtml(instr.description || '')}
+      </div>
+    `;
 
     const embedUrl = getEmbedUrl(instr.video);
+
     if (embedUrl) {
       html += `
-        <div class="relative w-full pb-[56.25%] mt-2">
+        <div class="instruction-video-box mt-3">
           <iframe
-            class="absolute top-0 left-0 w-full h-full rounded"
-            src="${embedUrl}"
+            class="instruction-video-frame"
+            src="${escapeHtml(embedUrl)}"
+            loading="lazy"
             frameborder="0"
             allow="autoplay; fullscreen; picture-in-picture"
             allowfullscreen>
@@ -169,10 +175,18 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       `;
     }
 
+    if (instr.test || instr.pdf || instr.link) {
+      html += `<div class="instruction-links grid grid-cols-1 gap-2 mt-3">`;
+    }
+
     if (instr.test) {
       html += `
-        <a href="${escapeHtml(instr.test)}" target="_blank"
-          class="mt-2 block bg-blue-600 p-2 text-center rounded">
+        <a
+          href="${escapeHtml(instr.test)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
+        >
           ${t('common.go_to_test')}
         </a>
       `;
@@ -180,27 +194,48 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
     if (instr.pdf) {
       html += `
-        <button onclick="window.open('${escapeHtml(instr.pdf)}')"
-          class="mt-2 bg-slate-700 px-3 py-1 rounded w-full">
+        <a
+          href="${escapeHtml(instr.pdf)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block bg-slate-700 hover:bg-slate-600 px-4 py-3 text-center rounded-xl font-semibold break-words"
+        >
           ${t('common.cheat_sheet')}
-        </button>
+        </a>
       `;
-    }
-
-    if (instr.load || instr.unload) {
-      html += `<div class="text-slate-400 mt-2">📍 ${escapeHtml(instr.load || '')} → ${escapeHtml(instr.unload || '')}</div>`;
-    }
-
-    if (instr.avoid) {
-      html += `<div class="mt-2"><b>${t('common.avoid')}</b><br>${escapeHtml(instr.avoid)}</div>`;
     }
 
     if (instr.link) {
       html += `
-        <a href="${escapeHtml(instr.link)}" target="_blank"
-          class="mt-2 block bg-blue-600 p-2 text-center rounded">
+        <a
+          href="${escapeHtml(instr.link)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
+        >
           Atidaryti nuorodą
         </a>
+      `;
+    }
+
+    if (instr.test || instr.pdf || instr.link) {
+      html += `</div>`;
+    }
+
+    if (instr.load || instr.unload) {
+      html += `
+        <div class="text-slate-400 mt-3 break-words">
+          📍 ${escapeHtml(instr.load || '')} → ${escapeHtml(instr.unload || '')}
+        </div>
+      `;
+    }
+
+    if (instr.avoid) {
+      html += `
+        <div class="mt-3 break-words">
+          <b>${t('common.avoid')}</b><br>
+          ${escapeHtml(instr.avoid)}
+        </div>
       `;
     }
 
