@@ -182,14 +182,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function applyRoleVisibility() {
-    const role = getRole();
+  const role = currentProfile?.role || null;
 
-    const settingsBtn = document.querySelector('[data-page="nustatymai"]');
+  const settingsButtons = document.querySelectorAll('[data-page="nustatymai"]');
 
-    if (settingsBtn) {
-      settingsBtn.classList.toggle('hidden', role === 'driver' || !role);
+  settingsButtons.forEach(button => {
+    if (role === 'driver' || !role) {
+      button.classList.add('hidden');
+      button.style.display = 'none';
+    } else {
+      button.classList.remove('hidden');
+      button.style.display = '';
     }
+  });
+
+  if ((role === 'driver' || !role) && currentPage === 'nustatymai') {
+    loadPage('dashboard');
   }
+}
 
   function setActiveNav(page) {
     document.querySelectorAll('[data-page]').forEach(btn => {
