@@ -332,3 +332,47 @@ textarea {
     padding-left: 4px;
   }
 }
+/* Instruction video layout */
+
+.instruction-video-box {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #020617;
+}
+
+.instruction-video-frame {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  border: 0;
+  display: block;
+}
+
+.instruction-links {
+  width: 100%;
+  max-width: 100%;
+}
+
+.instruction-links a {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drive-video-desktop {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .drive-video-desktop {
+    display: none;
+  }
+}
