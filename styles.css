@@ -1,22 +1,18 @@
 /* GBY Driver responsive layout fixes */
 
+/* Prevent accidental horizontal scroll on mobile */
 html,
 body {
   max-width: 100%;
   overflow-x: hidden;
 }
 
+/* Better mobile tap behavior */
 button,
 select,
 input,
 textarea {
   -webkit-tap-highlight-color: transparent;
-}
-
-img,
-iframe,
-video {
-  max-width: 100%;
 }
 
 /* Mobile bottom navigation */
@@ -49,6 +45,7 @@ video {
     min-height: calc(100vh - 72px);
   }
 
+  /* Forms feel less cramped on phones */
   #content input,
   #content select,
   #content textarea,
@@ -56,6 +53,7 @@ video {
     font-size: 16px;
   }
 
+  /* Tables should not break phone layout */
   #content table {
     min-width: 720px;
   }
@@ -64,6 +62,28 @@ video {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Settings cards/lists: actions do not fly away on mobile */
+  #instrList > div,
+  #usersList > div,
+  #groupsList > div {
+    gap: 10px;
+  }
+
+  #instrList button,
+  #usersList button,
+  #groupsList button {
+    min-height: 38px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  #instrList .flex,
+  #usersList .flex,
+  #groupsList .flex {
+    flex-wrap: wrap;
+  }
+
+  /* Modals on small screens */
   .fixed .max-w-6xl,
   .fixed .max-w-md {
     max-width: calc(100vw - 24px);
@@ -78,57 +98,79 @@ video {
     padding-right: 8px !important;
   }
 }
+/* Instruction cards, videos and links mobile fix */
 
-/* Lists and settings action buttons */
+.instruction-card,
+#topicsContainer > div,
+#instrList > div {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.instruction-card iframe,
+.instruction-card video,
+#topicsContainer iframe,
+#topicsContainer video {
+  width: 100% !important;
+  max-width: 100% !important;
+  aspect-ratio: 16 / 9;
+  height: auto !important;
+  border-radius: 14px;
+  display: block;
+}
+
+.instruction-card a,
+.instruction-card button,
+#topicsContainer a,
+#topicsContainer button {
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.instruction-actions,
+.instruction-links,
+#topicsContainer .flex {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .instruction-card,
+  #topicsContainer > div {
+    padding: 14px !important;
+  }
+
+  .instruction-card iframe,
+  #topicsContainer iframe {
+    min-height: 190px;
+  }
+
+  .instruction-card a,
+  .instruction-card button,
+  #topicsContainer a,
+  #topicsContainer button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
+/* Instructions mobile video and action buttons fix */
+
+.instruction-card,
+#topicsContainer > div,
 #instrList > div,
 #usersList > div,
 #groupsList > div {
   max-width: 100%;
   overflow: hidden;
-  gap: 10px;
 }
 
-#instrList > div > div:first-child,
-#usersList > div > div:first-child,
-#groupsList > div > div:first-child {
-  min-width: 0;
-}
-
-#instrList button,
-#usersList button,
-#groupsList button {
-  min-height: 38px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
-#instrList .flex,
-#usersList .flex,
-#groupsList .flex {
-  flex-wrap: wrap;
-}
-
-@media (max-width: 767px) {
-  #instrList > div,
-  #usersList > div,
-  #groupsList > div {
-    align-items: flex-start !important;
-    flex-direction: column;
-  }
-
-  #instrList > div > div,
-  #usersList > div > div,
-  #groupsList > div > div {
-    max-width: 100%;
-    width: 100%;
-  }
-}
-
-/* Instruction cards, videos and links */
-.instruction-card,
-#topicsContainer > div {
+.instruction-card iframe,
+.instruction-card video,
+#topicsContainer iframe,
+#topicsContainer video {
   max-width: 100%;
-  overflow: hidden;
 }
 
 .instruction-video-wrap {
@@ -148,37 +190,96 @@ video {
 }
 
 .instruction-links a,
-.instruction-links button,
-.instruction-actions button {
+.instruction-links button {
   max-width: 100%;
   white-space: normal;
   word-break: break-word;
 }
 
-.instruction-links,
-.instruction-actions {
-  flex-wrap: wrap;
-  gap: 8px;
+@media (max-width: 767px) {
+  .instruction-links a,
+  .instruction-links button {
+    width: 100%;
+  }
+
+  #instrList > div,
+  #usersList > div,
+  #groupsList > div {
+    align-items: flex-start !important;
+  }
+
+  #instrList > div > div,
+  #usersList > div > div,
+  #groupsList > div > div {
+    max-width: 100%;
+  }
+}
+
+/* Final instruction video fit fix */
+
+.instruction-card {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.topic-content {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.instruction-video-box {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #020617;
+}
+
+.instruction-video-frame {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  border: 0;
+  display: block;
+}
+
+.instruction-links {
+  width: 100%;
+  max-width: 100%;
+}
+
+.instruction-links a,
+.instruction-links button {
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: normal;
+  word-break: break-word;
 }
 
 @media (max-width: 767px) {
-  .instruction-card,
-  #topicsContainer > div {
-    padding: 14px !important;
-  }
-
-  .instruction-links a,
-  .instruction-links button,
-  .instruction-actions button {
+  #topicsContainer {
     width: 100%;
-    justify-content: center;
-    text-align: center;
+    max-width: 100%;
   }
-}
 
-/* Dashboard images are display-only */
-#dashboardImages img,
-#dashboardPreview img {
-  user-select: none;
-  -webkit-user-drag: none;
+  #topicsContainer .topic {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .instruction-video-box {
+    aspect-ratio: 16 / 9;
+  }
+
+  .topic-content {
+    padding: 12px !important;
+  }
 }

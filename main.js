@@ -215,6 +215,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function getDashboardImageUrl(img) {
+    if (img?.image_url) return img.image_url;
+
+    if (img?.file_path) {
+      const { data } = supabase
+        .storage
+        .from('dashboard-images')
+        .getPublicUrl(img.file_path);
+
+      return data?.publicUrl || '';
+    }
+
+    return '';
+  }
+
   async function renderDashboardImages() {
     const container = document.getElementById('dashboardImages');
 
@@ -224,7 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { data, error } = await supabase
       .from('dashboard_images')
-      .select('id, image_url, title, sort_order, is_active, created_at')
+      .select('id, image_url, file_path, title, sort_order, is_active, created_at')
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
@@ -242,16 +257,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    container.innerHTML = images.map(img => `
-      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
-        <img
-          src="${img.image_url}"
-          alt=""
-          class="w-full h-auto block select-none pointer-events-none"
-          draggable="false"
-        >
-      </div>
-    `).join('');
+    container.innerHTML = images.map(img => {
+      const imageUrl = getDashboardImageUrl(img);
+
+      if (!imageUrl) return '';
+
+      return `
+        <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+          <img
+            src="${imageUrl}"
+            alt=""
+            class="w-full h-auto block select-none pointer-events-none"
+            draggable="false"
+          >
+        </div>
+      `;
+    }).join('');
   }
 
   async function initPage(page) {
