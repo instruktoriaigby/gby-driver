@@ -1,0 +1,77 @@
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+
+  <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+
+    <div class="flex justify-center mb-6">
+      <img
+        src="/Logo_GBY.jpg"
+        alt="GBY"
+        class="h-12 object-contain"
+      >
+    </div>
+
+    <h1 class="text-2xl font-semibold mb-2 text-center">
+      Prisijungimas
+    </h1>
+
+    <p class="text-slate-400 mb-6 text-center text-sm sm:text-base">
+      Prisijunkite prie sistemos
+    </p>
+
+    <form id="loginForm" class="space-y-4">
+
+      <div>
+        <label
+          for="loginEmail"
+          class="block text-sm text-slate-400 mb-1"
+        >
+          El. paštas
+        </label>
+
+        <input
+          id="loginEmail"
+          type="email"
+          inputmode="email"
+          class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="El. paštas"
+          autocomplete="email"
+          required
+        >
+      </div>
+
+      <div>
+        <label
+          for="loginPassword"
+          class="block text-sm text-slate-400 mb-1"
+        >
+          Slaptažodis
+        </label>
+
+        <input
+          id="loginPassword"
+          type="password"
+          class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Slaptažodis"
+          autocomplete="current-password"
+          required
+        >
+      </div>
+
+      <button
+        id="loginSubmitBtn"
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        Prisijungti
+      </button>
+
+    </form>
+
+    <div
+      id="loginError"
+      class="text-red-400 text-sm mt-4 hidden"
+    ></div>
+
+  </div>
+
+</div>

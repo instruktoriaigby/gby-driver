@@ -1,0 +1,236 @@
+<div class="w-full max-w-5xl mx-auto px-4">
+
+  <div class="bg-slate-900/60 p-6 rounded-2xl shadow-xl">
+
+    <p class="text-sm text-slate-400 mb-6" data-i18n="app.subtitle"></p>
+
+    <form id="defectForm" class="space-y-6">
+
+      <!-- CMR -->
+      <div>
+        <label class="block mb-1" data-i18n="app.cmr"></label>
+        <input
+          name="cmr"
+          type="text"
+          autocomplete="off"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.cmr_placeholder"
+        >
+      </div>
+
+      <!-- TRUCK -->
+      <div>
+        <label class="block mb-1" data-i18n="app.truck"></label>
+        <input
+          name="truck"
+          type="text"
+          list="truckList"
+          autocomplete="off"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.truck_placeholder"
+        >
+        <datalist id="truckList"></datalist>
+      </div>
+
+      <!-- DRIVER -->
+      <div>
+        <label class="block mb-1" data-i18n="app.driver"></label>
+        <input
+          name="driver"
+          type="text"
+          list="driverList"
+          autocomplete="off"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.driver_placeholder"
+        >
+        <datalist id="driverList"></datalist>
+      </div>
+
+      <!-- STAGE -->
+      <div>
+        <label class="block mb-2" data-i18n="app.stage"></label>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="loading" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_loading"></span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="transport" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_transport"></span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="unloading" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_unloading"></span>
+            </div>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- PASIKROVIMAS -->
+      <div>
+        <label class="block mb-1" data-i18n="app.loading_place"></label>
+        <input
+          name="pasikrovimo"
+          type="text"
+          list="locationsList"
+          autocomplete="off"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.location_placeholder"
+        >
+      </div>
+
+      <!-- IŠSIKROVIMAS -->
+      <div>
+        <label class="block mb-1" data-i18n="app.unloading_place"></label>
+        <input
+          name="issikrovimo"
+          type="text"
+          list="locationsList"
+          autocomplete="off"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.location_placeholder"
+        >
+      </div>
+
+      <!-- DATALIST -->
+      <datalist id="locationsList"></datalist>
+
+      <!-- LOCATION -->
+      <div>
+        <label class="block mb-1" data-i18n="app.location"></label>
+
+        <select
+          name="location"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+        >
+          <option value="" disabled selected data-i18n="app.select_prompt"></option>
+          <option value="front_bumper" data-i18n="app.loc_front_bumper"></option>
+          <option value="rear_bumper" data-i18n="app.loc_rear_bumper"></option>
+          <option value="hood" data-i18n="app.loc_hood"></option>
+          <option value="fender" data-i18n="app.loc_fender"></option>
+          <option value="door" data-i18n="app.loc_door"></option>
+          <option value="roof" data-i18n="app.loc_roof"></option>
+          <option value="glass" data-i18n="app.loc_glass"></option>
+          <option value="mirrors" data-i18n="app.loc_mirrors"></option>
+          <option value="interior" data-i18n="app.loc_interior"></option>
+          <option value="trunk" data-i18n="app.loc_trunk"></option>
+          <option value="other" data-i18n="app.loc_other"></option>
+        </select>
+      </div>
+
+      <!-- EXPLANATION -->
+      <div>
+        <label class="block mb-1" data-i18n="app.explanation"></label>
+
+        <textarea
+          name="explanation"
+          rows="4"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+          data-i18n-placeholder="app.explanation_placeholder"
+        ></textarea>
+      </div>
+
+      <!-- FOTO BLOKAI -->
+      <div class="space-y-6">
+
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+          <h4 class="mb-2" data-i18n="app.photo_vin"></h4>
+
+          <img
+            src="VIN.jpg"
+            alt="VIN"
+            class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
+          >
+
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            capture="environment"
+            data-category="vin"
+            class="w-full bg-slate-800 p-2 rounded-xl"
+          >
+        </div>
+
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+          <h4 class="mb-2" data-i18n="app.photo_far"></h4>
+
+          <img
+            src="TOLI.jpg"
+            alt="Nuotrauka iš toli"
+            class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
+          >
+
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            capture="environment"
+            data-category="far"
+            class="w-full bg-slate-800 p-2 rounded-xl"
+          >
+        </div>
+
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+          <h4 class="mb-2" data-i18n="app.photo_close"></h4>
+
+          <img
+            src="ARTI.jpg"
+            alt="Nuotrauka iš arti"
+            class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
+          >
+
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            capture="environment"
+            data-category="close"
+            class="w-full bg-slate-800 p-2 rounded-xl"
+          >
+        </div>
+
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+          <h4 class="mb-2" data-i18n="app.photo_doc"></h4>
+
+          <img
+            src="DOK.jpg"
+            alt="Dokumento nuotrauka"
+            class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
+          >
+
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            capture="environment"
+            data-category="doc"
+            class="w-full bg-slate-800 p-2 rounded-xl"
+          >
+        </div>
+
+      </div>
+
+      <!-- SUBMIT -->
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <span data-i18n="app.submit"></span>
+      </button>
+
+    </form>
+
+  </div>
+
+</div>

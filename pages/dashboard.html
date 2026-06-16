@@ -1,0 +1,24 @@
+<div id="dashboard" class="page">
+
+  <h1 class="text-3xl mb-2" data-i18n="dashboard.title">Pagrindinis</h1>
+  <p class="text-slate-400 mb-6" data-i18n="dashboard.subtitle">Vidinė informacija</p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+    <button data-page="defektas"
+      class="bg-red-600 hover:bg-red-700 p-6 rounded-xl text-lg font-semibold">
+      <span data-i18n="dashboard.defects">Defektai</span>
+    </button>
+
+    <button data-page="instrukcijos"
+      class="bg-blue-600 hover:bg-blue-700 p-6 rounded-xl text-lg font-semibold">
+      <span data-i18n="dashboard.instructions">Instrukcijos</span>
+    </button>
+
+    <button data-page="uzduotys"
+      class="bg-purple-600 hover:bg-purple-700 p-6 rounded-xl text-lg font-semibold">
+      <span data-i18n="dashboard.tasks">Užduotys</span>
+    </button>
+  </div>
+
+  <div id="dashboardImages" class="flex flex-col gap-6"></div>
+</div>
