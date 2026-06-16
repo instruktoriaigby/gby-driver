@@ -149,13 +149,13 @@ export async function initInstrukcijos({ supabase, user, profile }) {
         class="topic instruction-card bg-slate-800 p-4 rounded-xl border border-slate-700 overflow-hidden"
         data-id="${item.id}"
       >
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+        <div class="flex flex-col gap-3">
           <div class="min-w-0">
             <div class="font-semibold break-words">${escapeHtml(item.title)}</div>
             <div class="text-sm text-slate-400 break-words">${escapeHtml(item.description || '')}</div>
           </div>
 
-          <div class="instruction-actions flex flex-wrap gap-2 shrink-0">
+          <div class="instruction-actions grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
             ${role === 'instructor' || role === 'admin' ? `
               <button class="edit-btn bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg text-xs">
                 ✏️
@@ -168,17 +168,16 @@ export async function initInstrukcijos({ supabase, user, profile }) {
               </button>
             ` : ''}
 
-            <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg text-xs font-semibold">
+            <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-semibold">
               Atidaryti
             </button>
           </div>
         </div>
 
         <div
-          class="topic-content hidden mt-4 bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-700 space-y-3 overflow-hidden"
+          class="topic-content hidden mt-4 bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-700 overflow-hidden"
           id="content-${item.id}"
-        >
-        </div>
+        ></div>
       </div>
     `).join('');
   }
@@ -186,46 +185,30 @@ export async function initInstrukcijos({ supabase, user, profile }) {
   function renderInstructionContent(instr) {
     if (!instr) return t('common.no_instructions');
 
-    let html = `
-      <div class="text-slate-200 break-words">
-        ${escapeHtml(instr.description || '')}
-      </div>
-    `;
-
     const rawVideoUrl = String(instr.video || '').trim();
     const embedUrl = getEmbedUrl(rawVideoUrl);
     const isDriveVideo = rawVideoUrl && isGoogleDriveUrl(rawVideoUrl);
 
+    let html = '';
+
     if (isDriveVideo) {
       html += `
-        <div class="drive-video-block mt-3">
-          <div class="drive-video-desktop">
-            <div class="instruction-video-box">
-              <iframe
-                class="instruction-video-frame"
-                src="${escapeHtml(getGoogleDrivePreviewUrl(rawVideoUrl))}"
-                loading="lazy"
-                frameborder="0"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowfullscreen>
-              </iframe>
-            </div>
+        <div class="drive-video-desktop">
+          <div class="instruction-video-box">
+            <iframe
+              class="instruction-video-frame"
+              src="${escapeHtml(getGoogleDrivePreviewUrl(rawVideoUrl))}"
+              loading="lazy"
+              frameborder="0"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowfullscreen>
+            </iframe>
           </div>
-
-          <a
-            href="${escapeHtml(rawVideoUrl)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="drive-video-mobile-button"
-          >
-            <span class="drive-video-play">▶</span>
-            <span>Atidaryti / padidinti video</span>
-          </a>
         </div>
       `;
     } else if (embedUrl) {
       html += `
-        <div class="instruction-video-box mt-3">
+        <div class="instruction-video-box">
           <iframe
             class="instruction-video-frame"
             src="${escapeHtml(embedUrl)}"
@@ -238,8 +221,21 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       `;
     }
 
-    if (instr.test || instr.pdf || instr.link) {
+    if (rawVideoUrl || instr.test || instr.pdf || instr.link) {
       html += `<div class="instruction-links grid grid-cols-1 gap-2 mt-3">`;
+    }
+
+    if (rawVideoUrl) {
+      html += `
+        <a
+          href="${escapeHtml(rawVideoUrl)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
+        >
+          ▶ Video
+        </a>
+      `;
     }
 
     if (instr.test) {
@@ -281,7 +277,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       `;
     }
 
-    if (instr.test || instr.pdf || instr.link) {
+    if (rawVideoUrl || instr.test || instr.pdf || instr.link) {
       html += `</div>`;
     }
 
@@ -300,6 +296,10 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           ${escapeHtml(instr.avoid)}
         </div>
       `;
+    }
+
+    if (!html.trim()) {
+      html = `<div class="text-slate-400">${t('common.no_instructions')}</div>`;
     }
 
     return html;
