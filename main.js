@@ -215,24 +215,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function renderDashboardImages() {
+  async function renderDashboardImages() {
     const container = document.getElementById('dashboardImages');
 
     if (!container) return;
 
-    const images = JSON.parse(localStorage.getItem('dashboardImages') || '[]');
+    container.innerHTML = `<div class="text-slate-400">${t('common.loading') || 'Kraunama...'}</div>`;
+
+    const { data, error } = await supabase
+      .from('dashboard_images')
+      .select('id, image_url, title, sort_order, is_active, created_at')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Dashboard images load error:', error);
+      container.innerHTML = `<div class="text-red-400">Nepavyko užkrauti pagrindinio puslapio informacijos.</div>`;
+      return;
+    }
+
+    const images = data || [];
 
     if (!images.length) {
-      container.innerHTML = `<div class="text-slate-400">${t('dashboard.no_info')}</div>`;
+      container.innerHTML = `<div class="text-slate-400">${t('dashboard.no_info') || 'Informacijos nėra.'}</div>`;
       return;
     }
 
     container.innerHTML = images.map(img => `
-      <div class="bg-slate-800 rounded-xl overflow-hidden">
+      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
         <img
-          src="${img}"
-          class="w-full h-auto cursor-pointer"
-          onclick="window.open('${img}', '_blank')"
+          src="${img.image_url}"
+          alt=""
+          class="w-full h-auto block select-none pointer-events-none"
+          draggable="false"
         >
       </div>
     `).join('');
@@ -241,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function initPage(page) {
     switch (page) {
       case 'dashboard':
-        renderDashboardImages();
+        await renderDashboardImages();
         break;
 
       case 'defektas':
