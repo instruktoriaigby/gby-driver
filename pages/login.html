@@ -4,17 +4,23 @@
 
     <div class="flex justify-center mb-6">
       <img
-        src="/Logo_GBY.jpg"
+        src="icons/icon-512.png"
         alt="GBY"
-        class="h-12 object-contain"
+        class="h-40 object-contain"
       >
     </div>
 
-    <h1 class="text-2xl font-semibold mb-2 text-center">
+    <h1
+      class="text-2xl font-semibold mb-2 text-center"
+      data-i18n="login.title"
+    >
       Prisijungimas
     </h1>
 
-    <p class="text-slate-400 mb-6 text-center text-sm sm:text-base">
+    <p
+      class="text-slate-400 mb-6 text-center text-sm sm:text-base"
+      data-i18n="login.subtitle"
+    >
       Prisijunkite prie sistemos
     </p>
 
@@ -24,6 +30,7 @@
         <label
           for="loginEmail"
           class="block text-sm text-slate-400 mb-1"
+          data-i18n="login.email"
         >
           El. paštas
         </label>
@@ -33,6 +40,7 @@
           type="email"
           inputmode="email"
           class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-i18n-placeholder="login.email"
           placeholder="El. paštas"
           autocomplete="email"
           required
@@ -43,6 +51,7 @@
         <label
           for="loginPassword"
           class="block text-sm text-slate-400 mb-1"
+          data-i18n="login.password"
         >
           Slaptažodis
         </label>
@@ -51,6 +60,7 @@
           id="loginPassword"
           type="password"
           class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-i18n-placeholder="login.password"
           placeholder="Slaptažodis"
           autocomplete="current-password"
           required
@@ -61,6 +71,7 @@
         id="loginSubmitBtn"
         type="submit"
         class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+        data-i18n="login.submit"
       >
         Prisijungti
       </button>
