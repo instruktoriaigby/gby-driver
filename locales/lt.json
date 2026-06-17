@@ -174,6 +174,15 @@
     "ok": "Gerai",
     "message": "Pranešimas",
     "confirmation": "Patvirtinimas",
-    "open_link": "Atidaryti nuorodą"
-  }
-}
+    "open_link": "Atidaryti nuorodą",
+    "logout": "Atsijungti"
+  },
+"login": {
+  "title": "Prisijungimas prie sistemos",
+  "subtitle": "Įveskite savo prisijungimo duomenis",
+  "email": "El. paštas",
+  "password": "Slaptažodis",
+  "submit": "Prisijungti",
+  "invalid": "Neteisingas el. paštas arba slaptažodis",
+  "loading": "Jungiamasi..."
+}}
