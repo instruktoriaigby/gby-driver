@@ -98,10 +98,17 @@ export async function initDefektas({ supabase, user, profile }) {
     );
   }
 
-  function markPhotoInvalid(field) {
-    if (!field) return;
+  function markPhotoInvalid(fieldOrCategory) {
+    const category = typeof fieldOrCategory === 'string'
+      ? fieldOrCategory
+      : fieldOrCategory?.dataset?.category;
 
-    const wrapper = field.closest('.bg-slate-900\\/50') || field.parentElement;
+    const wrapper =
+      category
+        ? getPhotoBlockForCategory(category)
+        : fieldOrCategory?.closest('.photo-block') ||
+          fieldOrCategory?.closest('.bg-slate-900\\/50') ||
+          fieldOrCategory?.parentElement;
 
     if (wrapper) {
       wrapper.classList.add(
@@ -132,7 +139,7 @@ export async function initDefektas({ supabase, user, profile }) {
       );
     });
 
-    form.querySelectorAll('.bg-slate-900\\/50').forEach(block => {
+    form.querySelectorAll('.bg-slate-900\\/50, .photo-block').forEach(block => {
       block.classList.remove(
         'border',
         'border-red-500',
@@ -171,12 +178,101 @@ export async function initDefektas({ supabase, user, profile }) {
     return Array.from(form.querySelectorAll('input[type="file"][data-category]'));
   }
 
+  function getPhotoInputsByCategory(category) {
+    const normalized = normalizeCategory(category);
+
+    return getPhotoInputs().filter(input => {
+      return normalizeCategory(input.dataset.category) === normalized;
+    });
+  }
+
   function getRequiredPhotoInput(category) {
     const normalized = normalizeCategory(category);
 
     return getPhotoInputs().find(input => {
       return normalizeCategory(input.dataset.category) === normalized;
     });
+  }
+
+  function getFilesForCategory(category) {
+    const inputs = getPhotoInputsByCategory(category);
+    const files = [];
+
+    inputs.forEach(input => {
+      Array.from(input.files || []).forEach(file => {
+        files.push({
+          file,
+          source: input.dataset.photoSource || 'file'
+        });
+      });
+    });
+
+    return files;
+  }
+
+  function getPhotoBlockForCategory(category) {
+    const normalized = normalizeCategory(category);
+
+    return (
+      form.querySelector(`[data-photo-block="${normalized}"]`) ||
+      getRequiredPhotoInput(normalized)?.closest('.photo-block') ||
+      getRequiredPhotoInput(normalized)?.closest('.bg-slate-900\\/50')
+    );
+  }
+
+  function getCurrentLang() {
+    return localStorage.getItem('lang') || profile?.lang || 'lt';
+  }
+
+  function tr(key, fallback = '') {
+    const lang = getCurrentLang();
+
+    const dictionary = {
+      lt: {
+        selected_photos: 'Prisegta nuotraukų: {count}',
+        selected_document: 'Dokumentas prisegtas',
+        selected_documents: 'Dokumentų prisegta: {count}'
+      },
+      en: {
+        selected_photos: 'Attached photos: {count}',
+        selected_document: 'Document attached',
+        selected_documents: 'Attached documents: {count}'
+      },
+      ru: {
+        selected_photos: 'Прикреплено фото: {count}',
+        selected_document: 'Документ прикреплён',
+        selected_documents: 'Прикреплено документов: {count}'
+      }
+    };
+
+    return dictionary[lang]?.[key] || dictionary.lt[key] || fallback;
+  }
+
+  function updatePhotoStatus(category) {
+    const normalized = normalizeCategory(category);
+    const status = form.querySelector(`[data-photo-status="${normalized}"]`);
+
+    if (!status) return;
+
+    const count = getFilesForCategory(normalized).length;
+
+    if (!count) {
+      status.textContent = '';
+      return;
+    }
+
+    if (normalized === 'document') {
+      status.textContent = count === 1
+        ? tr('selected_document', 'Dokumentas prisegtas')
+        : tr('selected_documents', 'Dokumentų prisegta: {count}').replace('{count}', count);
+      return;
+    }
+
+    status.textContent = tr('selected_photos', 'Prisegta nuotraukų: {count}').replace('{count}', count);
+  }
+
+  function updateAllPhotoStatuses() {
+    ['vin', 'far', 'close', 'document'].forEach(updatePhotoStatus);
   }
 
   function getSafePart(value, fallback = 'unknown') {
@@ -442,28 +538,33 @@ export async function initDefektas({ supabase, user, profile }) {
     const requiredPhotos = [
       {
         label: 'VIN nuotrauka',
+        category: 'vin',
         input: getRequiredPhotoInput('vin')
       },
       {
         label: 'Nuotrauka iš toli',
+        category: 'far',
         input: getRequiredPhotoInput('far')
       },
       {
         label: 'Nuotrauka iš arti',
+        category: 'close',
         input: getRequiredPhotoInput('close')
       },
       {
         label: 'Dokumento nuotrauka',
+        category: 'document',
         input: getRequiredPhotoInput('document')
       }
     ];
 
     const missingPhotos = requiredPhotos.filter(item => {
-      return !item.input || !item.input.files || item.input.files.length === 0;
+      const category = item.input?.dataset?.category || item.category;
+      return getFilesForCategory(category).length === 0;
     });
 
     missingPhotos.forEach(item => {
-      markPhotoInvalid(item.input);
+      markPhotoInvalid(item.category || item.input?.dataset?.category || item.input);
     });
 
     const allMissing = [
@@ -564,8 +665,8 @@ export async function initDefektas({ supabase, user, profile }) {
   }
 
   async function uploadDefectPhotos(defectId, formData) {
-    const inputs = getPhotoInputs();
     const photoRows = [];
+    const usedFileNames = new Map();
 
     const { date, time } = getDateTimeParts();
 
@@ -574,20 +675,23 @@ export async function initDefektas({ supabase, user, profile }) {
       'no_truck'
     );
 
-    for (const input of inputs) {
-      const rawCategory = input.dataset.category;
-      const category = normalizeCategory(rawCategory);
+    const categories = ['vin', 'far', 'close', 'document'];
 
-      if (!category || !input.files || input.files.length === 0) continue;
+    for (const category of categories) {
+      const selectedFiles = getFilesForCategory(category);
 
-      const files = Array.from(input.files);
-
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index];
+      for (let index = 0; index < selectedFiles.length; index++) {
+        const item = selectedFiles[index];
+        const file = item.file;
 
         const extension = getFileExtension(file.name, file.type);
-        const suffix = files.length > 1 ? `_${index + 1}` : '';
+        const key = `${category}.${extension}`;
+        const currentCount = usedFileNames.get(key) || 0;
+        const nextCount = currentCount + 1;
 
+        usedFileNames.set(key, nextCount);
+
+        const suffix = nextCount > 1 ? `_${nextCount}` : '';
         const filePath = `${date}_${time}_${truckNumber}_${category}${suffix}.${extension}`;
 
         const { error: uploadError } = await supabase.storage
@@ -634,8 +738,16 @@ export async function initDefektas({ supabase, user, profile }) {
   await loadReferenceLists();
 
   form.addEventListener('input', clearInvalidMarks);
-  form.addEventListener('change', () => {
+  form.addEventListener('change', (event) => {
     clearInvalidMarks();
+
+    const changedPhotoInput = event.target?.matches?.('input[type="file"][data-category]')
+      ? event.target
+      : null;
+
+    if (changedPhotoInput) {
+      updatePhotoStatus(changedPhotoInput.dataset.category);
+    }
 
     if (isDriver) {
       lockDriverFieldForLoggedInDriver();
@@ -759,6 +871,7 @@ export async function initDefektas({ supabase, user, profile }) {
 
       form.reset();
       clearInvalidMarks();
+      updateAllPhotoStatuses();
 
       if (isDriver) {
         lockDriverFieldForLoggedInDriver();
