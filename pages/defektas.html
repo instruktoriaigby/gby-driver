@@ -143,7 +143,7 @@
       <!-- FOTO BLOKAI -->
       <div class="space-y-6">
 
-        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="vin">
           <h4 class="mb-2" data-i18n="app.photo_vin"></h4>
 
           <img
@@ -154,7 +154,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
-              <span>Pasirinkti iš galerijos</span>
+              <span data-i18n="app.photo_gallery">Pasirinkti iš galerijos</span>
               <input
                 type="file"
                 multiple
@@ -166,7 +166,7 @@
             </label>
 
             <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
-              <span>Fotografuoti</span>
+              <span data-i18n="app.photo_camera">Fotografuoti</span>
               <input
                 type="file"
                 accept="image/*"
@@ -181,7 +181,7 @@
           <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="vin"></div>
         </div>
 
-        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="far">
           <h4 class="mb-2" data-i18n="app.photo_far"></h4>
 
           <img
@@ -192,7 +192,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
-              <span>Pasirinkti iš galerijos</span>
+              <span data-i18n="app.photo_gallery">Pasirinkti iš galerijos</span>
               <input
                 type="file"
                 multiple
@@ -204,7 +204,7 @@
             </label>
 
             <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
-              <span>Fotografuoti</span>
+              <span data-i18n="app.photo_camera">Fotografuoti</span>
               <input
                 type="file"
                 accept="image/*"
@@ -219,7 +219,7 @@
           <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="far"></div>
         </div>
 
-        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="close">
           <h4 class="mb-2" data-i18n="app.photo_close"></h4>
 
           <img
@@ -230,7 +230,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
-              <span>Pasirinkti iš galerijos</span>
+              <span data-i18n="app.photo_gallery">Pasirinkti iš galerijos</span>
               <input
                 type="file"
                 multiple
@@ -242,7 +242,7 @@
             </label>
 
             <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
-              <span>Fotografuoti</span>
+              <span data-i18n="app.photo_camera">Fotografuoti</span>
               <input
                 type="file"
                 accept="image/*"
@@ -257,7 +257,7 @@
           <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="close"></div>
         </div>
 
-        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="document">
           <h4 class="mb-2" data-i18n="app.photo_doc"></h4>
 
           <img
@@ -268,31 +268,31 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
-              <span>Pasirinkti iš galerijos</span>
+              <span data-i18n="app.photo_gallery">Pasirinkti iš galerijos</span>
               <input
                 type="file"
                 multiple
                 accept="image/*"
-                data-category="doc"
+                data-category="document"
                 data-photo-source="gallery"
                 class="hidden defect-photo-input"
               >
             </label>
 
             <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
-              <span>Fotografuoti</span>
+              <span data-i18n="app.photo_camera">Fotografuoti</span>
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
-                data-category="doc"
+                data-category="document"
                 data-photo-source="camera"
                 class="hidden defect-photo-input"
               >
             </label>
           </div>
 
-          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="doc"></div>
+          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="document"></div>
         </div>
 
       </div>
