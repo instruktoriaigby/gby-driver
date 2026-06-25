@@ -152,13 +152,33 @@
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            data-category="vin"
-            class="w-full bg-slate-800 p-2 rounded-xl"
-          >
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
+              <span>Pasirinkti iš galerijos</span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                data-category="vin"
+                data-photo-source="gallery"
+                class="hidden defect-photo-input"
+              >
+            </label>
+
+            <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
+              <span>Fotografuoti</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                data-category="vin"
+                data-photo-source="camera"
+                class="hidden defect-photo-input"
+              >
+            </label>
+          </div>
+
+          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="vin"></div>
         </div>
 
         <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
@@ -170,13 +190,33 @@
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            data-category="far"
-            class="w-full bg-slate-800 p-2 rounded-xl"
-          >
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
+              <span>Pasirinkti iš galerijos</span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                data-category="far"
+                data-photo-source="gallery"
+                class="hidden defect-photo-input"
+              >
+            </label>
+
+            <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
+              <span>Fotografuoti</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                data-category="far"
+                data-photo-source="camera"
+                class="hidden defect-photo-input"
+              >
+            </label>
+          </div>
+
+          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="far"></div>
         </div>
 
         <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
@@ -188,13 +228,33 @@
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            data-category="close"
-            class="w-full bg-slate-800 p-2 rounded-xl"
-          >
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
+              <span>Pasirinkti iš galerijos</span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                data-category="close"
+                data-photo-source="gallery"
+                class="hidden defect-photo-input"
+              >
+            </label>
+
+            <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
+              <span>Fotografuoti</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                data-category="close"
+                data-photo-source="camera"
+                class="hidden defect-photo-input"
+              >
+            </label>
+          </div>
+
+          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="close"></div>
         </div>
 
         <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
@@ -206,13 +266,33 @@
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            data-category="doc"
-            class="w-full bg-slate-800 p-2 rounded-xl"
-          >
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="block bg-slate-800 border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700">
+              <span>Pasirinkti iš galerijos</span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                data-category="doc"
+                data-photo-source="gallery"
+                class="hidden defect-photo-input"
+              >
+            </label>
+
+            <label class="block bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-center cursor-pointer">
+              <span>Fotografuoti</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                data-category="doc"
+                data-photo-source="camera"
+                class="hidden defect-photo-input"
+              >
+            </label>
+          </div>
+
+          <div class="photo-status text-xs text-slate-400 mt-2" data-photo-status="doc"></div>
         </div>
 
       </div>
