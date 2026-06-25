@@ -46,7 +46,9 @@
     "new_report": "Nauja forma",
     "max_photos": "Max 3",
     "example": "Pavyzdys",
-    "error_max_photos": "Galima įkelti daugiausiai 3 nuotraukas."
+    "error_max_photos": "Galima įkelti daugiausiai 3 nuotraukas.",
+    "photo_gallery": "Pasirinkti iš galerijos",
+    "photo_camera": "Fotografuoti"
   },
   "instr": {
     "title": "Instrukcijos vairuotojams",

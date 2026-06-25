@@ -46,7 +46,9 @@
     "new_report": "New report",
     "max_photos": "Max 3",
     "example": "Example",
-    "error_max_photos": "You can upload a maximum of 3 photos."
+    "error_max_photos": "You can upload a maximum of 3 photos.",
+    "photo_gallery": "Choose from gallery",
+    "photo_camera": "Take photo"
   },
   "instr": {
     "title": "Driver Instructions",
