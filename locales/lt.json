@@ -52,7 +52,8 @@
   },
   "instr": {
     "title": "Instrukcijos vairuotojams",
-    "subtitle": "Visa svarbi informacija vienoje vietoje"
+    "subtitle": "Visa svarbi informacija vienoje vietoje",
+    "open_instruction": "Atidaryti"
   },
   "tabs": {
     "general": "Bendri",
@@ -177,7 +178,8 @@
     "message": "Pranešimas",
     "confirmation": "Patvirtinimas",
     "open_link": "Atidaryti nuorodą",
-    "logout": "Atsijungti"
+    "logout": "Atsijungti",
+    "open": "Atidaryti"
   },
 "login": {
   "title": "Prisijungimas prie sistemos",

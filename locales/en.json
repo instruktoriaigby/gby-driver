@@ -52,7 +52,8 @@
   },
   "instr": {
     "title": "Driver Instructions",
-    "subtitle": "All important information in one place"
+    "subtitle": "All important information in one place",
+    "open_instruction": "Open"
   },
   "tabs": {
     "general": "General",
@@ -177,7 +178,8 @@
     "message": "Message",
     "confirmation": "Confirmation",
     "open_link": "Open link",
-    "logout": "Logout"
+    "logout": "Logout",
+    "open": "Open"
   },
   "login": {
   "title": "Sign in",
