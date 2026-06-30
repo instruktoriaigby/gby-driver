@@ -135,7 +135,14 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       return matchesText && item.type === currentTab;
     });
   }
+  function getTranslation(key, fallback) {
+  const value = t(key);
 
+  if (!value) return fallback;
+  if (value === key) return fallback;
+
+  return value;
+}
   function renderList() {
     const list = getVisibleInstructions();
 
@@ -168,9 +175,10 @@ export async function initInstrukcijos({ supabase, user, profile }) {
               </button>
             ` : ''}
 
-            <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-semibold">
-              Atidaryti
-            </button>
+              <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-semibold">
+            ${getTranslation('instructions.open_instruction', getTranslation('common.open', 'Atidaryti'))}
+</button>
+            </div>
           </div>
         </div>
 
@@ -233,7 +241,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          ▶ Video
+          ${getTranslation('instructions.video', getTranslation('common.video', '▶ Video'))}
         </a>
       `;
     }
@@ -246,7 +254,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          ${t('common.go_to_test')}
+          ${getTranslation('instructions.go_to_test', getTranslation('common.go_to_test', 'Eiti į testą'))}
         </a>
       `;
     }
