@@ -47,9 +47,10 @@
       <button
         id="logoutBtn"
         class="hidden bg-slate-800 text-white px-3 py-2 rounded-xl border border-slate-600 text-sm"
+        data-i18n="common.logout"
       >
-        Atsijungti
-      </button>
+      Atsijungti
+    </button>
 
       <select
         id="langSwitcher"
@@ -91,7 +92,11 @@
           <span class="label" data-i18n="nav.tasks">Užduotys</span>
         </button>
 
-        <button data-page="nustatymai" class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800">
+        <button
+          id="settingsNavBtn"
+          data-page="nustatymai"
+          class="nav-btn w-full text-left px-4 py-2 rounded hover:bg-slate-800"
+        >
           <span class="label" data-i18n="nav.settings">Nustatymai</span>
         </button>
       </div>
