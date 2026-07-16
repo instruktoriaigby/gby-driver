@@ -1,0 +1,291 @@
+<div class="w-full max-w-7xl mx-auto px-4 text-white">
+
+  <h1
+    class="text-xl sm:text-2xl font-semibold mb-2"
+    data-i18n="truck_acceptance.title"
+  >
+    Vilkiko priėmimas ir kokybės įvertinimas
+  </h1>
+
+  <p
+    class="text-slate-400 mb-6 text-sm sm:text-base"
+    data-i18n="truck_acceptance.subtitle"
+  >
+    Užpildykite vilkiko priėmimo duomenis ir įvertinkite būklę prieš darbą.
+  </p>
+
+  <form id="truckAcceptanceForm" class="space-y-6">
+
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+      <h2
+        class="text-lg font-semibold mb-4"
+        data-i18n="truck_acceptance.main_info"
+      >
+        Pagrindinė informacija
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label class="block text-sm mb-1">
+            <span data-i18n="truck_acceptance.date">Data</span> *
+          </label>
+          <input
+            id="reportDate"
+            type="date"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1">
+            <span data-i18n="truck_acceptance.driver">Vairuotojas</span> *
+          </label>
+          <input
+            id="driverName"
+            type="text"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+            data-i18n-placeholder="truck_acceptance.driver_placeholder"
+            placeholder="Vardas, pavardė"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1">
+            <span data-i18n="truck_acceptance.truck_number">Vilkiko numeris</span> *
+          </label>
+          <input
+            id="truckNumber"
+            type="text"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+            data-i18n-placeholder="truck_acceptance.truck_number_placeholder"
+            placeholder="Vilkiko numeris"
+          >
+        </div>
+
+        <div>
+          <label
+            class="block text-sm mb-1"
+            data-i18n="truck_acceptance.trailer_type"
+          >
+            Platformos tipas
+          </label>
+          <select
+            id="trailerType"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+          >
+            <option value="" data-i18n="truck_acceptance.select">Pasirinkite</option>
+            <option value="Rimo PL7">Rimo PL7</option>
+            <option value="Rimo Adero">Rimo Adero</option>
+            <option value="Kassbohrer">Kassbohrer</option>
+            <option value="Kita" data-i18n="truck_acceptance.other">Kita</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            class="block text-sm mb-1"
+            data-i18n="truck_acceptance.client"
+          >
+            Klientas
+          </label>
+          <input
+            id="client"
+            type="text"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+            data-i18n-placeholder="truck_acceptance.client_placeholder"
+            placeholder="Klientas"
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+      <h2
+        class="text-lg font-semibold mb-4"
+        data-i18n="truck_acceptance.tire_pressure"
+      >
+        Padangų slėgio įvertinimas (bar)
+      </h2>
+
+      <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+
+        <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+          <h3
+            class="font-semibold mb-3"
+            data-i18n="truck_acceptance.front_axle"
+          >
+            Priekinė ašis
+          </h3>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.left">Kairė</span>
+              <input id="frontLeftPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.right">Dešinė</span>
+              <input id="frontRightPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <h3
+              class="font-semibold"
+              data-i18n="truck_acceptance.lazy_axle"
+            >
+              Tinginys
+            </h3>
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+              <input id="hasLazyAxle" type="checkbox" class="w-4 h-4 accent-blue-600">
+              <span>Yra</span>
+            </label>
+          </div>
+          <div id="lazyAxleInputs" class="grid grid-cols-2 gap-3 opacity-40">
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.left">Kairė</span>
+              <input id="lazyLeftPressure" type="number" step="0.1" disabled class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-not-allowed" placeholder="-">
+            </label>
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.right">Dešinė</span>
+              <input id="lazyRightPressure" type="number" step="0.1" disabled class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-not-allowed" placeholder="-">
+            </label>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 xl:col-span-2">
+          <h3
+            class="font-semibold mb-3"
+            data-i18n="truck_acceptance.drive_axle"
+          >
+            Varomoji ašis
+          </h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.outer_left">Išorinė kairė</span>
+              <input id="driveOuterLeftPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.inner_left">Vidinė kairė</span>
+              <input id="driveInnerLeftPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.inner_right">Vidinė dešinė</span>
+              <input id="driveInnerRightPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+            <label class="text-sm">
+              <span data-i18n="truck_acceptance.outer_right">Išorinė dešinė</span>
+              <input id="driveOuterRightPressure" type="number" step="0.1" class="mt-1 w-full p-3 bg-slate-900 rounded-xl border border-slate-700" placeholder="0.0">
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="mt-4 bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <h3
+          class="font-semibold mb-3"
+          data-i18n="truck_acceptance.trailer_axles"
+        >
+          Priekabos ašys
+        </h3>
+
+        <div id="trailerAxles" class="space-y-4"></div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+      <h2
+        class="text-lg font-semibold mb-4"
+        data-i18n="truck_acceptance.quality"
+      >
+        Kokybės įvertinimas
+      </h2>
+
+      <div id="qualityGrid" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+        <h3
+          class="font-semibold mb-3"
+          data-i18n="truck_acceptance.windshield"
+        >
+          Priekinis stiklas
+        </h3>
+        <div class="grid grid-cols-1 gap-2" data-choice-group="windshieldCondition">
+          <button type="button" class="choice-btn" data-value="Su pažeidimais" data-i18n="truck_acceptance.windshield_damaged">Su pažeidimais</button>
+          <button type="button" class="choice-btn" data-value="Minimalūs pažeidimai" data-i18n="truck_acceptance.windshield_minor">Minimalūs pažeidimai</button>
+          <button type="button" class="choice-btn active" data-value="Be pažeidimų" data-i18n="truck_acceptance.windshield_ok">Be pažeidimų</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+        <h3
+          class="font-semibold mb-3"
+          data-i18n="truck_acceptance.lights"
+        >
+          Žibintai
+        </h3>
+        <div class="grid grid-cols-3 gap-2" data-choice-group="lightsCondition">
+          <button type="button" class="choice-btn active" data-value="Veikia" data-i18n="truck_acceptance.lights_working">Veikia</button>
+          <button type="button" class="choice-btn" data-value="Neveikia" data-i18n="truck_acceptance.lights_not_working">Neveikia</button>
+          <button type="button" class="choice-btn" data-value="Pažeisti" data-i18n="truck_acceptance.lights_damaged">Pažeisti</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+        <h3
+          class="font-semibold mb-3"
+          data-i18n="truck_acceptance.exterior_cleanliness"
+        >
+          Autovežio išorinė švara
+        </h3>
+        <div class="grid grid-cols-4 gap-2" data-choice-group="exteriorCleanliness">
+          <button type="button" class="choice-btn" data-value="Blokas" data-i18n="truck_acceptance.block">Blokas</button>
+          <button type="button" class="choice-btn" data-value="Įspėjimas" data-i18n="truck_acceptance.warning">Įspėjimas</button>
+          <button type="button" class="choice-btn active" data-value="Gerai" data-i18n="truck_acceptance.good">Gerai</button>
+          <button type="button" class="choice-btn" data-value="Puikiai" data-i18n="truck_acceptance.excellent">Puikiai</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+      <h2
+        class="text-lg font-semibold mb-4"
+        data-i18n="truck_acceptance.additional_photos"
+      >
+        Papildomos nuotraukos
+      </h2>
+      <div id="additionalPhotosGrid" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4"></div>
+    </div>
+
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-700">
+      <h2
+        class="text-lg font-semibold mb-4"
+        data-i18n="truck_acceptance.other"
+      >
+        Kita
+      </h2>
+      <textarea
+        id="notes"
+        rows="5"
+        maxlength="1000"
+        class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+        data-i18n-placeholder="truck_acceptance.notes_placeholder"
+        placeholder="Įrašykite pastabas ar papildomą informaciją..."
+      ></textarea>
+      <div id="notesCounter" class="text-right text-xs text-slate-500 mt-1">0 / 1000</div>
+    </div>
+
+    <button
+      id="saveTruckAcceptanceBtn"
+      type="submit"
+      class="w-full bg-blue-600 hover:bg-blue-700 p-4 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      data-i18n="truck_acceptance.save"
+    >
+      Išsaugoti įvertinimą
+    </button>
+
+  </form>
+</div>

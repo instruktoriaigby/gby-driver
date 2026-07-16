@@ -1,0 +1,159 @@
+<div class="w-full max-w-5xl mx-auto px-4 text-white">
+
+  <h1 class="text-xl sm:text-2xl font-semibold mb-2" data-i18n="loading_schemes.title">Krovimo schemos</h1>
+  <p class="text-slate-400 mb-6 text-sm sm:text-base">
+    <span data-i18n="loading_schemes.subtitle">Autovežių krovimo schemų kūrimas, patvirtinimas ir bendroji patvirtintų schemų bazė.</span>
+  </p>
+
+  <div id="ksManageArea">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <div class="text-slate-400 text-sm" data-i18n="loading_schemes.active_tasks">Aktyvios užduotys</div>
+        <div id="ksActiveCount" class="text-2xl font-bold mt-1">0</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <div class="text-slate-400 text-sm" data-i18n="loading_schemes.waiting_approval_short">Laukia patvirtinimo</div>
+        <div id="ksWaitingCount" class="text-2xl font-bold mt-1">0</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <div class="text-slate-400 text-sm" data-i18n="loading_schemes.approved_schemes">Patvirtintos schemos</div>
+        <div id="ksApprovedCount" class="text-2xl font-bold mt-1">0</div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <h2 class="text-lg font-semibold" data-i18n="loading_schemes.active_tasks">Aktyvios užduotys</h2>
+        <input id="ksActiveSearch" type="search" class="w-full sm:w-72 p-3 bg-slate-800 rounded-xl border border-slate-700" data-i18n-placeholder="loading_schemes.active_filter_placeholder" placeholder="Filtruoti pagal pavadinimą ar aprašymą...">
+      </div>
+      <div id="ksActiveList" class="space-y-3"></div>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6">
+      <h2 class="text-lg font-semibold mb-4" data-i18n="loading_schemes.fill_task">Aktyvios užduoties pildymas</h2>
+
+      <label class="block text-sm mb-2 text-slate-300" data-i18n="loading_schemes.select_task">Pasirink aktyvią užduotį</label>
+      <select id="ksSourceTask" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 mb-2">
+        <option value="" data-i18n="loading_schemes.no_task_option">Be užduoties / rekomenduojama schema</option>
+      </select>
+      <p class="text-xs text-slate-400 mb-4" data-i18n="loading_schemes.no_task_hint">Užduotį pasirinkti nebūtina. Galima pateikti rekomenduojamą schemą be užduoties.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm mb-1 text-slate-300" data-i18n="loading_schemes.loading_place_required">Pasikrovimas *</label>
+          <input
+            id="ksLoadingPlace"
+            type="search"
+            list="ksLocationsList"
+            autocomplete="off"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+            data-i18n-placeholder="loading_schemes.loading_place_placeholder" placeholder="Pasirinkite arba įrašykite pasikrovimą"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1 text-slate-300" data-i18n="loading_schemes.unloading_place_required">Išsikrovimas *</label>
+          <input
+            id="ksDestination"
+            type="search"
+            list="ksLocationsList"
+            autocomplete="off"
+            class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700"
+            data-i18n-placeholder="loading_schemes.unloading_place_placeholder" placeholder="Pasirinkite arba įrašykite išsikrovimą"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1 text-slate-300" data-i18n="loading_schemes.carrier_type_required">Autovežio tipas *</label>
+          <select id="ksCarrierType" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700">
+            <option value="" data-i18n="loading_schemes.carrier_type">Autovežio tipas</option>
+            <option value="Rimo PL7">Rimo PL7</option>
+            <option value="Rimo Adero">Rimo Adero</option>
+            <option value="Kassbohrer">Kassbohrer</option>
+            <option value="Kita">Kita</option>
+          </select>
+        </div>
+      </div>
+
+      <datalist id="ksLocationsList"></datalist>
+      <datalist id="ksMakeList"></datalist>
+
+      <div class="mt-5 bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h3 class="font-semibold" data-i18n="loading_schemes.cars">Automobiliai</h3>
+          <button id="ksAddCar" type="button" class="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-xl text-sm font-semibold">
+            <span data-i18n="loading_schemes.add_car">+ Pridėti automobilį</span>
+          </button>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">
+          <span data-i18n="loading_schemes.cars_hint">Kiekvieną markę/modelį įveskite atskira eilute. Markės ir modeliai filtruojasi pagal sąrašą, bet galima įrašyti ir ranka.</span>
+        </p>
+        <div id="ksCars" class="space-y-3"></div>
+      </div>
+
+      <textarea
+        id="ksSchemeDescription"
+        rows="5"
+        class="w-full mt-4 p-3 bg-slate-800 rounded-xl border border-slate-700"
+        data-i18n-placeholder="loading_schemes.scheme_placeholder" placeholder="Schemos aprašymas: kaip išdėstyti automobilius, ką svarbu žinoti, pastabos..."
+      ></textarea>
+
+      <textarea
+        id="ksMasterComment"
+        rows="3"
+        class="w-full mt-4 p-3 bg-slate-800 rounded-xl border border-slate-700"
+        data-i18n-placeholder="loading_schemes.master_comment_placeholder" placeholder="Master driver komentaras / rekomendacija..."
+      ></textarea>
+
+      <div class="mt-5">
+        <h3 class="font-semibold mb-3" data-i18n="loading_schemes.required_photos">Privalomos nuotraukos</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="ks-photo-card" data-category="truck_side_required"></div>
+          <div class="ks-photo-card" data-category="trailer_side_required"></div>
+          <div class="ks-photo-card" data-category="full_carrier_side_required"></div>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h3 class="font-semibold mb-3" data-i18n="loading_schemes.additional_photos">Papildomos nuotraukos</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="ks-photo-card" data-category="extra_1"></div>
+          <div class="ks-photo-card" data-category="extra_2"></div>
+          <div class="ks-photo-card" data-category="extra_3"></div>
+        </div>
+      </div>
+
+      <button
+        id="ksSubmitBtn"
+        type="button"
+        class="w-full mt-6 bg-blue-600 hover:bg-blue-700 rounded-xl p-3 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <span data-i18n="loading_schemes.submit_for_approval_full">Pateikti užpildytą schemą patvirtinimui</span>
+      </button>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6">
+      <h2 class="text-lg font-semibold mb-4" data-i18n="loading_schemes.waiting_tasks">Laukia patvirtinimo užduotys</h2>
+      <div id="ksWaitingList" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <h2 class="text-lg font-semibold" data-i18n="loading_schemes.approved_base">Bendroji patvirtintų schemų bazė</h2>
+      <input id="ksApprovedSearch" type="search" class="w-full sm:w-72 p-3 bg-slate-800 rounded-xl border border-slate-700" data-i18n-placeholder="loading_schemes.approved_filter_placeholder" placeholder="Ieškoti pagal pasikrovimą, išsikrovimą, markę, modelį...">
+    </div>
+    <div id="ksApprovedList" class="space-y-3"></div>
+  </div>
+
+  <div id="ksModal" class="hidden fixed inset-0 z-[9999] bg-black/70 px-4 py-6 overflow-y-auto">
+    <div class="max-w-3xl mx-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white">
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h2 class="text-lg font-semibold" data-i18n="loading_schemes.scheme_description">Schemos aprašymas</h2>
+        <button id="ksModalClose" class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl">✕</button>
+      </div>
+      <div id="ksModalContent"></div>
+    </div>
+  </div>
+
+</div>
