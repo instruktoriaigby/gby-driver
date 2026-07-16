@@ -2,6 +2,8 @@ import { initDefektas } from './pages/js/defektas.js';
 import { initInstrukcijos } from './pages/js/instrukcijos.js';
 import { initNustatymai } from './pages/js/nustatymai.js';
 import { initUzduotys } from './pages/js/uzduotys.js';
+import { initVilkikoPriemimas } from './pages/js/vilkiko-priemimas.js';
+import { initMasterDriver } from './pages/js/master-driver.js';
 import { initLogin } from './pages/js/login.js';
 import { initI18n, applyTranslations, t } from './i18n.js';
 
@@ -182,35 +184,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function applyRoleVisibility() {
-  const role = currentProfile?.role || null;
+    const role = currentProfile?.role || null;
 
-  const settingsButtons = document.querySelectorAll('[data-page="nustatymai"]');
+    document.querySelectorAll('[data-roles]').forEach(element => {
+      const roles = String(element.dataset.roles || '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
 
-  settingsButtons.forEach(button => {
-    if (role === 'driver' || !role) {
-      button.classList.add('hidden');
-      button.style.display = 'none';
-    } else {
-      button.classList.remove('hidden');
-      button.style.display = '';
+      if (!roles.length) return;
+
+      const allowed = Boolean(role && roles.includes(role));
+
+      element.classList.toggle('hidden', !allowed);
+      element.style.display = allowed ? '' : 'none';
+    });
+
+    const settingsButtons = document.querySelectorAll('[data-page="nustatymai"]');
+
+    settingsButtons.forEach(button => {
+      if (role === 'driver' || !role) {
+        button.classList.add('hidden');
+        button.style.display = 'none';
+      } else {
+        button.classList.remove('hidden');
+        button.style.display = '';
+      }
+    });
+
+    if ((role === 'driver' || !role) && currentPage === 'nustatymai') {
+      loadPage('dashboard');
     }
-  });
-
-  if ((role === 'driver' || !role) && currentPage === 'nustatymai') {
-    loadPage('dashboard');
   }
-}
 
   function setActiveNav(page) {
     document.querySelectorAll('[data-page]').forEach(btn => {
-      btn.classList.remove('bg-blue-600');
+      btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
       btn.classList.add('hover:bg-slate-800');
     });
 
     const activeBtn = document.querySelector(`[data-page="${page}"]`);
 
     if (activeBtn) {
-      activeBtn.classList.add('bg-blue-600');
+      activeBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
       activeBtn.classList.remove('hover:bg-slate-800');
     }
   }
@@ -307,6 +323,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       case 'uzduotys':
         await initUzduotys({
+          supabase,
+          user: currentUser,
+          profile: currentProfile
+        });
+        break;
+
+      case 'vilkiko-priemimas':
+        await initVilkikoPriemimas({
+          supabase,
+          user: currentUser,
+          profile: currentProfile
+        });
+        break;
+
+      case 'master-driver':
+        await initMasterDriver({
           supabase,
           user: currentUser,
           profile: currentProfile
@@ -421,7 +453,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const navBtn = e.target.closest('[data-page]');
 
     if (navBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+
       const page = navBtn.dataset.page;
+
+      if (!page) return;
+
       await loadPage(page);
       return;
     }
@@ -462,6 +500,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('languageChanged', async () => {
     applyTranslations();
     await loadPage(currentPage);
+    applyTranslations();
   });
 
   await loadSession();
