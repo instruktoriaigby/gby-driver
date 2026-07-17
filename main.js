@@ -28,6 +28,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingPage = null;
   let blockedUserMessageShown = false;
 
+  function updateMobileNavScrollHint() {
+    const wrap = document.querySelector('.mobile-nav-wrap');
+    const nav = document.querySelector('#sidebar .mobile-nav-scroll');
+    const progress = document.getElementById('mobileNavProgress');
+
+    if (!wrap || !nav || !progress) return;
+
+    const maxScroll = nav.scrollWidth - nav.clientWidth;
+    const current = nav.scrollLeft;
+
+    wrap.classList.toggle('can-scroll-left', current > 4);
+    wrap.classList.toggle('can-scroll-right', maxScroll > 4 && current < maxScroll - 4);
+
+    if (maxScroll <= 0) {
+      progress.style.width = '100%';
+      progress.style.transform = 'translateX(0%)';
+      return;
+    }
+
+    const visibleRatio = Math.max(0.18, nav.clientWidth / nav.scrollWidth);
+    const progressWidth = visibleRatio * 100;
+    const progressMove = (current / maxScroll) * (100 - progressWidth);
+
+    progress.style.width = `${progressWidth}%`;
+    progress.style.transform = `translateX(${progressMove}%)`;
+  }
+
   function getBlockedMessage(profile = currentProfile) {
     const lang =
       profile?.lang ||
@@ -215,20 +242,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     if ((role === 'driver' || !role) && currentPage === 'nustatymai') {
       loadPage('dashboard');
     }
+
+    setTimeout(updateMobileNavScrollHint, 50);
   }
 
   function setActiveNav(page) {
     document.querySelectorAll('[data-page]').forEach(btn => {
-      btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+      btn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'active');
       btn.classList.add('hover:bg-slate-800');
     });
 
     const activeBtn = document.querySelector(`[data-page="${page}"]`);
 
     if (activeBtn) {
-      activeBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      activeBtn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'active');
       activeBtn.classList.remove('hover:bg-slate-800');
+
+      if (window.innerWidth < 768) {
+        setTimeout(() => {
+          activeBtn.scrollIntoView({
+            behavior: 'smooth',
+            inline: 'center',
+            block: 'nearest'
+          });
+
+          updateMobileNavScrollHint();
+        }, 60);
+      }
     }
+
+    setTimeout(updateMobileNavScrollHint, 50);
   }
 
   function getDashboardImageUrl(img) {
@@ -423,6 +466,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateShellByAuth();
       applyRoleVisibility();
 
+      setTimeout(updateMobileNavScrollHint, 50);
+
     } catch (err) {
       console.error('loadPage error:', err);
 
@@ -484,6 +529,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  window.addEventListener('resize', updateMobileNavScrollHint);
+
+  document
+    .querySelector('#sidebar .mobile-nav-scroll')
+    ?.addEventListener('scroll', updateMobileNavScrollHint);
+
+  setTimeout(updateMobileNavScrollHint, 300);
+
   logoutBtn?.addEventListener('click', async () => {
     await supabase.auth.signOut();
 
@@ -509,6 +562,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTranslations();
 
   await loadPage(currentUser ? 'dashboard' : 'login');
+
+  setTimeout(updateMobileNavScrollHint, 300);
 });
 
 if ('serviceWorker' in navigator) {
