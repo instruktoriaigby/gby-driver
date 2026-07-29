@@ -588,18 +588,61 @@ export async function initDefektas({ supabase, user, profile }) {
     return true;
   }
 
-  async function loadReferenceLists() {
-    const [trucksResult, driversResult, locationsResult] = await Promise.all([
-      supabase.from('trucks').select('*'),
-      supabase.from('drivers').select('*'),
-      supabase.from('locations').select('*')
-    ]);
+  async function fetchAllLocations() {
+    const pageSize = 1000;
+    let from = 0;
+    let allRows = [];
 
-    if (trucksResult.error || driversResult.error || locationsResult.error) {
+    while (true) {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      const rows = data || [];
+      allRows = allRows.concat(rows);
+
+      if (rows.length < pageSize) {
+        break;
+      }
+
+      from += pageSize;
+    }
+
+    return allRows;
+  }
+
+  async function loadReferenceLists() {
+    let trucksResult;
+    let driversResult;
+    let locationsRows;
+
+    try {
+      [trucksResult, driversResult, locationsRows] = await Promise.all([
+        supabase.from('trucks').select('*'),
+        supabase.from('drivers').select('*'),
+        fetchAllLocations()
+      ]);
+    } catch (error) {
+      console.error('❌ Supabase sąrašų klaida:', error);
+
+      showModal({
+        type: 'error',
+        title: 'Nepavyko užkrauti duomenų',
+        message: 'Nepavyko užkrauti vilkikų, vairuotojų arba lokacijų sąrašų. Patikrink Console klaidą.'
+      });
+
+      return;
+    }
+
+    if (trucksResult.error || driversResult.error) {
       console.error('❌ Supabase sąrašų klaida:', {
         trucksError: trucksResult.error,
-        driversError: driversResult.error,
-        locationsError: locationsResult.error
+        driversError: driversResult.error
       });
 
       showModal({
@@ -640,7 +683,7 @@ export async function initDefektas({ supabase, user, profile }) {
       .filter(Boolean)
       .sort();
 
-    const locations = (locationsResult.data || [])
+    const locations = (locationsRows || [])
       .map(item =>
         item.name ||
         item.Name ||
@@ -660,6 +703,8 @@ export async function initDefektas({ supabase, user, profile }) {
     }
 
     fill('locationsList', locations);
+
+    console.log('✅ Lokacijų užkrauta:', locations.length);
 
     lockDriverFieldForLoggedInDriver();
   }
@@ -738,6 +783,7 @@ export async function initDefektas({ supabase, user, profile }) {
   await loadReferenceLists();
 
   form.addEventListener('input', clearInvalidMarks);
+
   form.addEventListener('change', (event) => {
     clearInvalidMarks();
 
