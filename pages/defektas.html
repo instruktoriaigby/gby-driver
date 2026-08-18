@@ -8,7 +8,7 @@
 
       <!-- CMR -->
       <div>
-        <label class="block mb-1" data-i18n="app.cmr"></label>
+        <label class="block mb-1" data-i18n="app.cmr">CMR numeris</label>
         <input
           name="cmr"
           type="text"
@@ -20,7 +20,7 @@
 
       <!-- TRUCK -->
       <div>
-        <label class="block mb-1" data-i18n="app.truck"></label>
+        <label class="block mb-1" data-i18n="app.truck">Vilkiko numeris</label>
         <input
           name="truck"
           type="text"
@@ -34,7 +34,7 @@
 
       <!-- DRIVER -->
       <div>
-        <label class="block mb-1" data-i18n="app.driver"></label>
+        <label class="block mb-1" data-i18n="app.driver">Vairuotojas</label>
         <input
           name="driver"
           type="text"
@@ -47,38 +47,45 @@
       </div>
 
       <!-- STAGE -->
-      <div>
-        <label class="block mb-2" data-i18n="app.stage"></label>
+<div>
+  <label class="block mb-2" data-i18n="app.stage">Defekto atsiradimo etapas</label>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+  <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
 
-          <label class="cursor-pointer">
-            <input type="radio" name="stage" value="loading" class="peer hidden">
-            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-              <span data-i18n="app.stage_loading"></span>
-            </div>
-          </label>
-
-          <label class="cursor-pointer">
-            <input type="radio" name="stage" value="transport" class="peer hidden">
-            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-              <span data-i18n="app.stage_transport"></span>
-            </div>
-          </label>
-
-          <label class="cursor-pointer">
-            <input type="radio" name="stage" value="unloading" class="peer hidden">
-            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-              <span data-i18n="app.stage_unloading"></span>
-            </div>
-          </label>
-
-        </div>
+    <label class="cursor-pointer">
+      <input type="radio" name="stage" value="loading_external" class="peer hidden">
+      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+        <span data-i18n="app.stage_loading">Defektas iš pasikrovimo (ne mūsų)</span>
       </div>
+    </label>
+
+    <label class="cursor-pointer">
+      <input type="radio" name="stage" value="loading_own" class="peer hidden">
+      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+        <span data-i18n="app.stage_loading_own">Defektas padarytas kraunantis</span>
+      </div>
+    </label>
+
+    <label class="cursor-pointer">
+      <input type="radio" name="stage" value="transport" class="peer hidden">
+      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+        <span data-i18n="app.stage_transport">Transportavimas</span>
+      </div>
+    </label>
+
+    <label class="cursor-pointer">
+      <input type="radio" name="stage" value="unloading" class="peer hidden">
+      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+        <span data-i18n="app.stage_unloading">Iškrovimas</span>
+      </div>
+    </label>
+
+  </div>
+</div>
 
       <!-- PASIKROVIMAS -->
       <div>
-        <label class="block mb-1" data-i18n="app.loading_place"></label>
+        <label class="block mb-1" data-i18n="app.loading_place">Pasikrovimo vieta</label>
         <input
           name="pasikrovimo"
           type="text"
@@ -91,7 +98,7 @@
 
       <!-- IŠSIKROVIMAS -->
       <div>
-        <label class="block mb-1" data-i18n="app.unloading_place"></label>
+        <label class="block mb-1" data-i18n="app.unloading_place">Išsikrovimo vieta</label>
         <input
           name="issikrovimo"
           type="text"
@@ -105,46 +112,117 @@
       <!-- DATALIST -->
       <datalist id="locationsList"></datalist>
 
-      <!-- LOCATION -->
-      <div>
-        <label class="block mb-1" data-i18n="app.location"></label>
+      <!-- TRUCK ONLY: DAMAGE TYPE -->
+      <div data-transport-mode="truck" class="hidden">
+        <label class="block mb-1" data-i18n="app.damage_type">Pažeidimo tipas</label>
+
+        <select
+          name="damage_type"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+        >
+          <option value="" disabled selected data-i18n="app.select_prompt">Pasirinkite...</option>
+          <option value="shortage" data-i18n="app.damage_type_shortage">Trūkumas</option>
+          <option value="damage" data-i18n="app.damage_type_damage">Pažeidimas</option>
+          <option value="other" data-i18n="app.damage_type_other">Kita</option>
+        </select>
+      </div>
+
+      <!-- TRUCK ONLY: CARGO TYPE -->
+      <div data-transport-mode="truck" class="hidden">
+        <label class="block mb-1" data-i18n="app.cargo_type">Krovinio tipas</label>
+
+        <select
+          name="cargo_type"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+        >
+          <option value="" disabled selected data-i18n="app.select_prompt">Pasirinkite...</option>
+          <option value="cardboard" data-i18n="app.cargo_type_cardboard">Kartonas</option>
+          <option value="metal" data-i18n="app.cargo_type_metal">Metalas</option>
+          <option value="electronics" data-i18n="app.cargo_type_electronics">Elektrotechnika</option>
+          <option value="vehicles" data-i18n="app.cargo_type_vehicles">Transporto priemonės</option>
+          <option value="drinks" data-i18n="app.cargo_type_drinks">Gėrimai</option>
+          <option value="auto_parts" data-i18n="app.cargo_type_auto_parts">Autoprekės</option>
+          <option value="other" data-i18n="app.cargo_type_other">Kita</option>
+        </select>
+      </div>
+
+      <!-- CAR TRANSPORTER LOCATION -->
+      <div data-transport-mode="car_transporter">
+        <label class="block mb-1" data-i18n="app.location">Defekto vieta</label>
 
         <select
           name="location"
+          data-location-field="car_transporter"
           class="w-full bg-slate-800 p-3 rounded-xl"
         >
-          <option value="" disabled selected data-i18n="app.select_prompt"></option>
-          <option value="front_bumper" data-i18n="app.loc_front_bumper"></option>
-          <option value="rear_bumper" data-i18n="app.loc_rear_bumper"></option>
-          <option value="hood" data-i18n="app.loc_hood"></option>
-          <option value="fender" data-i18n="app.loc_fender"></option>
-          <option value="door" data-i18n="app.loc_door"></option>
-          <option value="roof" data-i18n="app.loc_roof"></option>
-          <option value="glass" data-i18n="app.loc_glass"></option>
-          <option value="mirrors" data-i18n="app.loc_mirrors"></option>
-          <option value="interior" data-i18n="app.loc_interior"></option>
-          <option value="trunk" data-i18n="app.loc_trunk"></option>
-          <option value="other" data-i18n="app.loc_other"></option>
+          <option value="" disabled selected data-i18n="app.select_prompt">Pasirinkite...</option>
+          <option value="front_bumper" data-i18n="app.loc_front_bumper">Priekinis bamperis</option>
+          <option value="rear_bumper" data-i18n="app.loc_rear_bumper">Galinis bamperis</option>
+          <option value="hood" data-i18n="app.loc_hood">Kapotas</option>
+          <option value="fender" data-i18n="app.loc_fender">Sparnas</option>
+          <option value="door" data-i18n="app.loc_door">Durys</option>
+          <option value="roof" data-i18n="app.loc_roof">Stogas</option>
+          <option value="glass" data-i18n="app.loc_glass">Stiklai</option>
+          <option value="mirrors" data-i18n="app.loc_mirrors">Veidrodėliai</option>
+          <option value="interior" data-i18n="app.loc_interior">Vidus</option>
+          <option value="trunk" data-i18n="app.loc_trunk">Bagažinė</option>
+          <option value="other" data-i18n="app.loc_other">Kita</option>
+        </select>
+      </div>
+
+      <!-- TRUCK CARGO DEFECT LOCATION -->
+      <div data-transport-mode="truck" class="hidden">
+        <label class="block mb-1" data-i18n="app.truck_cargo_defect_location">Krovinio defekto / pažeidimo vieta</label>
+
+        <select
+          name="truck_location"
+          data-location-field="truck"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+        >
+          <option value="" disabled selected data-i18n="app.select_prompt">Pasirinkite...</option>
+          <option value="cargo_package" data-i18n="app.truck_cargo_loc_package">Krovinio pakuotė</option>
+          <option value="cargo_inside" data-i18n="app.truck_cargo_loc_inside">Krovinys viduje</option>
+          <option value="pallet" data-i18n="app.truck_cargo_loc_pallet">Paletė</option>
+          <option value="box" data-i18n="app.truck_cargo_loc_box">Dėžė</option>
+          <option value="film" data-i18n="app.truck_cargo_loc_film">Plėvelė</option>
+          <option value="shortage" data-i18n="app.truck_cargo_loc_shortage">Krovinio trūkumas</option>
+          <option value="documents" data-i18n="app.truck_cargo_loc_documents">Dokumentai</option>
+          <option value="seal" data-i18n="app.truck_cargo_loc_seal">Plomba</option>
+          <option value="other" data-i18n="app.loc_other">Kita</option>
         </select>
       </div>
 
       <!-- EXPLANATION -->
       <div>
-        <label class="block mb-1" data-i18n="app.explanation"></label>
+        <label class="block mb-1" data-i18n="app.explanation">Paaiškinimas</label>
 
-        <textarea
-          name="explanation"
-          rows="4"
-          class="w-full bg-slate-800 p-3 rounded-xl"
-          data-i18n-placeholder="app.explanation_placeholder"
-        ></textarea>
+        <div class="space-y-3">
+          <div>
+            <label class="block mb-1 text-sm text-slate-400" data-i18n="app.vin_number">VIN</label>
+            <input
+              name="vin_number"
+              type="text"
+              autocomplete="off"
+              class="w-full bg-slate-800 p-3 rounded-xl uppercase"
+              data-i18n-placeholder="app.vin_placeholder"
+              placeholder="Įrašykite VIN"
+            >
+          </div>
+
+          <textarea
+            name="explanation"
+            rows="4"
+            class="w-full bg-slate-800 p-3 rounded-xl"
+            data-i18n-placeholder="app.explanation_placeholder"
+          ></textarea>
+        </div>
       </div>
 
       <!-- FOTO BLOKAI -->
       <div class="space-y-6">
 
         <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="vin">
-          <h4 class="mb-2" data-i18n="app.photo_vin"></h4>
+          <h4 class="mb-2" data-i18n="app.photo_vin">VIN / numerio nuotrauka</h4>
 
           <img
             src="VIN.jpg"
@@ -182,7 +260,7 @@
         </div>
 
         <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="far">
-          <h4 class="mb-2" data-i18n="app.photo_far"></h4>
+          <h4 class="mb-2" data-i18n="app.photo_far">Iš toli</h4>
 
           <img
             src="TOLI.jpg"
@@ -220,7 +298,7 @@
         </div>
 
         <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="close">
-          <h4 class="mb-2" data-i18n="app.photo_close"></h4>
+          <h4 class="mb-2" data-i18n="app.photo_close">Iš arti</h4>
 
           <img
             src="ARTI.jpg"
@@ -258,7 +336,7 @@
         </div>
 
         <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="document">
-          <h4 class="mb-2" data-i18n="app.photo_doc"></h4>
+          <h4 class="mb-2" data-i18n="app.photo_doc">Dokumentas</h4>
 
           <img
             src="DOK.jpg"
@@ -302,7 +380,7 @@
         type="submit"
         class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <span data-i18n="app.submit"></span>
+        <span data-i18n="app.submit">Pateikti</span>
       </button>
 
     </form>
