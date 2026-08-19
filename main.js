@@ -28,6 +28,223 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingPage = null;
   let blockedUserMessageShown = false;
 
+  const TRANSPORT_MODES = {
+    CAR_TRANSPORTER: 'car_transporter',
+    TRUCK: 'truck'
+  };
+
+  const CAR_TRANSPORTER_ROLES = [
+    'driver',
+    'master_driver',
+    'instructor'
+  ];
+
+  const TRUCK_ROLES = [
+    'truck_driver',
+    'truck_master_driver',
+    'truck_instructor'
+  ];
+
+  const ADMIN_ROLES = [
+    'admin'
+  ];
+
+  const DRIVER_ROLES = [
+    'driver',
+    'truck_driver'
+  ];
+
+  const MODE_STORAGE_KEY = 'gby_admin_transport_mode';
+
+  const PAGE_ACCESS = {
+    dashboard: {
+      car_transporter: ['admin', 'driver', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    defektas: {
+      car_transporter: ['admin', 'driver', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    instrukcijos: {
+      car_transporter: ['admin', 'driver', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    uzduotys: {
+      car_transporter: ['admin', 'driver', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    'vilkiko-priemimas': {
+      car_transporter: ['admin', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    'master-driver': {
+      car_transporter: ['admin', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+    },
+
+    nustatymai: {
+      car_transporter: ['admin', 'master_driver', 'instructor'],
+      truck: ['admin', 'truck_master_driver', 'truck_instructor']
+    },
+
+    login: {
+      car_transporter: [],
+      truck: []
+    }
+  };
+
+  function isAdminRole(role = getRole()) {
+    return ADMIN_ROLES.includes(role);
+  }
+
+  function isTruckRole(role = getRole()) {
+    return TRUCK_ROLES.includes(role);
+  }
+
+  function isCarTransporterRole(role = getRole()) {
+    return CAR_TRANSPORTER_ROLES.includes(role);
+  }
+
+  function isDriverRole(role = getRole()) {
+    return DRIVER_ROLES.includes(role);
+  }
+
+  function getStoredAdminMode() {
+    const stored = localStorage.getItem(MODE_STORAGE_KEY);
+
+    if (stored === TRANSPORT_MODES.TRUCK) {
+      return TRANSPORT_MODES.TRUCK;
+    }
+
+    return TRANSPORT_MODES.CAR_TRANSPORTER;
+  }
+
+  function setStoredAdminMode(mode) {
+    const cleanMode = mode === TRANSPORT_MODES.TRUCK
+      ? TRANSPORT_MODES.TRUCK
+      : TRANSPORT_MODES.CAR_TRANSPORTER;
+
+    localStorage.setItem(MODE_STORAGE_KEY, cleanMode);
+  }
+
+  function getEffectiveTransportMode() {
+    const role = getRole();
+
+    if (!role) {
+      return TRANSPORT_MODES.CAR_TRANSPORTER;
+    }
+
+    if (isAdminRole(role)) {
+      return getStoredAdminMode();
+    }
+
+    if (isTruckRole(role)) {
+      return TRANSPORT_MODES.TRUCK;
+    }
+
+    if (isCarTransporterRole(role)) {
+      return TRANSPORT_MODES.CAR_TRANSPORTER;
+    }
+
+    return currentProfile?.transport_mode || TRANSPORT_MODES.CAR_TRANSPORTER;
+  }
+
+  function getModeLabel(mode = getEffectiveTransportMode()) {
+    const lang =
+      localStorage.getItem('lang') ||
+      currentProfile?.lang ||
+      document.getElementById('langSwitcher')?.value ||
+      'lt';
+
+    const labels = {
+      lt: {
+        car_transporter: 'Autovežiai',
+        truck: 'Vilkikai'
+      },
+      en: {
+        car_transporter: 'Car transporters',
+        truck: 'Trucks'
+      },
+      ru: {
+        car_transporter: 'Автовозы',
+        truck: 'Тягачи'
+      }
+    };
+
+    return labels[lang]?.[mode] || labels.lt[mode] || mode;
+  }
+
+  function updateAdminModeSwitcherLabels() {
+    const select = document.getElementById('adminTransportModeSwitcher');
+
+    if (!select) return;
+
+    const carOption = select.querySelector('option[value="car_transporter"]');
+    const truckOption = select.querySelector('option[value="truck"]');
+
+    if (carOption) {
+      carOption.textContent = getModeLabel(TRANSPORT_MODES.CAR_TRANSPORTER);
+    }
+
+    if (truckOption) {
+      truckOption.textContent = getModeLabel(TRANSPORT_MODES.TRUCK);
+    }
+
+    select.value = getEffectiveTransportMode();
+  }
+
+  function getProfileForModules() {
+    if (!currentProfile) return null;
+
+    const effectiveMode = getEffectiveTransportMode();
+
+    return {
+      ...currentProfile,
+
+      transport_mode: effectiveMode,
+      app_transport_mode: effectiveMode,
+      effective_transport_mode: effectiveMode,
+
+      db_transport_mode: currentProfile.transport_mode || null
+    };
+  }
+
+  function isPageAllowed(page) {
+    if (page === 'login') return true;
+
+    const role = getRole();
+    const mode = getEffectiveTransportMode();
+
+    if (!role) return false;
+
+    const config = PAGE_ACCESS[page];
+
+    if (!config) {
+      return true;
+    }
+
+    const allowedRoles = config[mode] || [];
+
+    return allowedRoles.includes(role);
+  }
+
+  function getDefaultPageForCurrentUser() {
+    return 'dashboard';
+  }
+
+  function ensureAllowedPage(page) {
+    if (isPageAllowed(page)) {
+      return page;
+    }
+
+    return getDefaultPageForCurrentUser();
+  }
+
   function updateMobileNavScrollHint() {
     const wrap = document.querySelector('.mobile-nav-wrap');
     const nav = document.querySelector('#sidebar .mobile-nav-scroll');
@@ -136,6 +353,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateShellByAuth();
     applyRoleVisibility();
+    ensureAdminModeSwitcher();
 
     if (content) {
       content.innerHTML = '';
@@ -208,12 +426,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (logoutBtn) {
       logoutBtn.classList.toggle('hidden', !isLoggedIn);
     }
+
+    ensureAdminModeSwitcher();
+  }
+
+  function ensureAdminModeSwitcher() {
+    const oldSwitcher = document.getElementById('adminTransportModeSwitcherWrap');
+    const role = getRole();
+
+    if (!currentUser || !isAdminRole(role)) {
+      if (oldSwitcher) oldSwitcher.remove();
+      return;
+    }
+
+    if (oldSwitcher) {
+      updateAdminModeSwitcherLabels();
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'adminTransportModeSwitcherWrap';
+    wrapper.className = 'flex items-center gap-2';
+
+    wrapper.innerHTML = `
+      <select
+        id="adminTransportModeSwitcher"
+        class="bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm"
+        title="Transporto režimas"
+      >
+        <option value="car_transporter"></option>
+        <option value="truck"></option>
+      </select>
+    `;
+
+    const select = wrapper.querySelector('#adminTransportModeSwitcher');
+    select.value = getEffectiveTransportMode();
+
+    select.addEventListener('change', async () => {
+      setStoredAdminMode(select.value);
+
+      applyRoleVisibility();
+      applyTranslations();
+      updateAdminModeSwitcherLabels();
+
+      const targetPage = isPageAllowed(currentPage)
+        ? currentPage
+        : getDefaultPageForCurrentUser();
+
+      await loadPage(targetPage);
+    });
+
+    const headerRightArea =
+      logoutBtn?.parentElement ||
+      document.querySelector('header .flex.items-center.gap-2') ||
+      document.querySelector('header .flex.items-center') ||
+      document.querySelector('header');
+
+    if (headerRightArea && logoutBtn) {
+      headerRightArea.insertBefore(wrapper, logoutBtn);
+    } else if (headerRightArea) {
+      headerRightArea.appendChild(wrapper);
+    } else {
+      document.body.appendChild(wrapper);
+      wrapper.classList.add('fixed', 'top-3', 'right-32', 'z-[999]');
+    }
+
+    updateAdminModeSwitcherLabels();
   }
 
   function applyRoleVisibility() {
     const role = currentProfile?.role || null;
 
-    document.querySelectorAll('[data-roles]').forEach(element => {
+    document.querySelectorAll('[data-page]').forEach(element => {
+      const page = element.dataset.page;
+
+      if (!page) return;
+
+      const allowed = Boolean(role && isPageAllowed(page));
+
+      element.classList.toggle('hidden', !allowed);
+      element.style.display = allowed ? '' : 'none';
+    });
+
+    document.querySelectorAll('[data-roles]:not([data-page])').forEach(element => {
       const roles = String(element.dataset.roles || '')
         .split(',')
         .map(item => item.trim())
@@ -227,21 +522,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       element.style.display = allowed ? '' : 'none';
     });
 
-    const settingsButtons = document.querySelectorAll('[data-page="nustatymai"]');
-
-    settingsButtons.forEach(button => {
-      if (role === 'driver' || !role) {
-        button.classList.add('hidden');
-        button.style.display = 'none';
-      } else {
-        button.classList.remove('hidden');
-        button.style.display = '';
-      }
-    });
-
-    if ((role === 'driver' || !role) && currentPage === 'nustatymai') {
-      loadPage('dashboard');
+    if (currentUser && !isPageAllowed(currentPage)) {
+      loadPage(getDefaultPageForCurrentUser());
     }
+
+    ensureAdminModeSwitcher();
+    updateAdminModeSwitcherLabels();
 
     setTimeout(updateMobileNavScrollHint, 50);
   }
@@ -312,7 +598,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const images = data || [];
 
     if (!images.length) {
-      container.innerHTML = `<div class="text-slate-400">${t('dashboard.no_info') || 'Informacijos nėra.'}</div>`;
+      container.innerHTML = `<div class="text-slate-400" data-i18n="dashboard.no_info">${t('dashboard.no_info') || 'Informacijos nėra.'}</div>`;
       return;
     }
 
@@ -333,8 +619,64 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }).join('');
   }
+  async function updateTasksBadge() {
+  const btn = document.querySelector('[data-page="uzduotys"]');
+
+  if (!btn) return;
+
+  let badge = btn.querySelector('.tasks-badge');
+
+  function removeBadge() {
+    if (badge) badge.remove();
+  }
+
+  if (!currentUser || !currentProfile) {
+    removeBadge();
+    return;
+  }
+
+  const role = getRole();
+  const isDriver =
+    role === 'driver' ||
+    role === 'truck_driver' ||
+    role === 'master_driver' ||
+    role === 'truck_master_driver';
+
+  if (!isDriver) {
+    removeBadge();
+    return;
+  }
+
+  const { count, error } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('driver_id', currentUser.id)
+    .eq('transport_mode', getEffectiveTransportMode())
+    .neq('status', 'done');
+
+  if (error) {
+    console.warn('Tasks badge error:', error);
+    removeBadge();
+    return;
+  }
+
+  if (!count) {
+    removeBadge();
+    return;
+  }
+
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'tasks-badge ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold leading-none';
+    btn.appendChild(badge);
+  }
+
+  badge.textContent = String(count);
+}
 
   async function initPage(page) {
+    const moduleProfile = getProfileForModules();
+
     switch (page) {
       case 'dashboard':
         await renderDashboardImages();
@@ -344,7 +686,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initDefektas({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -352,7 +694,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initInstrukcijos({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -360,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initNustatymai({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -368,7 +710,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initUzduotys({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -376,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initVilkikoPriemimas({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -384,7 +726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initMasterDriver({
           supabase,
           user: currentUser,
-          profile: currentProfile
+          profile: moduleProfile
         });
         break;
 
@@ -439,15 +781,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         page = 'login';
       }
 
-      if (currentUser && getRole() === 'driver' && page === 'nustatymai') {
-        page = 'dashboard';
+      if (currentUser && page !== 'login') {
+        page = ensureAllowedPage(page);
       }
 
       currentPage = page;
       setActiveNav(page);
 
       if (content) {
-        content.innerHTML = `<div class="text-slate-400">Kraunama...</div>`;
+        content.innerHTML = `<div class="text-slate-400" data-i18n="common.loading">${t('common.loading') || 'Kraunama...'}</div>`;
       }
 
       const res = await fetch(`pages/${page}.html`, { cache: 'no-store' });
@@ -465,6 +807,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       applyTranslations();
       updateShellByAuth();
       applyRoleVisibility();
+      updateAdminModeSwitcherLabels();
+      await updateTasksBadge();
 
       setTimeout(updateMobileNavScrollHint, 50);
 
@@ -493,6 +837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   window.navigateTo = loadPage;
+  window.getAppTransportMode = getEffectiveTransportMode;
 
   document.addEventListener('click', async (e) => {
     const navBtn = e.target.closest('[data-page]');
@@ -546,16 +891,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateShellByAuth();
     applyRoleVisibility();
+    ensureAdminModeSwitcher();
+    await updateTasksBadge();
 
     await loadPage('login');
   });
 
   window.addEventListener('languageChanged', async () => {
-    applyTranslations();
-    await loadPage(currentPage);
-    applyTranslations();
-  });
+  applyTranslations();
+  updateAdminModeSwitcherLabels();
+  updateShellByAuth();
+  applyRoleVisibility();
 
+  const pageToReload = currentPage || 'dashboard';
+
+  if (currentUser && pageToReload !== 'login') {
+    await loadPage(pageToReload);
+  } else {
+    applyTranslations();
+  }
+    await updateTasksBadge();
+
+  setTimeout(updateMobileNavScrollHint, 50);
+});
   await loadSession();
 
   updateShellByAuth();
