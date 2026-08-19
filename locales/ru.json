@@ -425,6 +425,23 @@
     "close_photo_hint": "Закрыть: X или нажмите на тёмный фон",
     "discard_confirm": "Вы уже начали заполнять схему. Прервать заполнение и открыть другую задачу?",
     "no_permission": "У вас нет прав для использования этой страницы",
-    "title_single": "Схема загрузки"
+    "title_single": "Схема загрузки",
+    "download_pdf": "Скачать PDF",
+    "assign_driver": "Назначить водителю",
+    "assign_driver_title": "Назначить схему водителю",
+    "assign_task": "Задача",
+    "driver": "Водитель",
+    "driver_search_placeholder": "Введите имя водителя...",
+    "select_driver": "Выберите водителя",
+    "driver_not_found": "Водители не найдены",
+    "selected_driver": "Выбрано",
+    "cancel": "Отмена",
+    "create_task": "Создать задачу",
+    "choose_driver_alert": "Выберите водителя.",
+    "scheme_view_description": "Просмотреть утверждённую схему загрузки.",
+    "scheme_task_created": "Задача для водителя создана.",
+    "scheme_task_create_error": "Не удалось создать задачу для водителя.",
+    "take_photo": "Сфотографировать",
+    "gallery": "Галерея"
   }
 }

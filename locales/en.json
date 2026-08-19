@@ -425,6 +425,23 @@
     "close_photo_hint": "Close: X or click the dark background",
     "discard_confirm": "You have started filling a scheme. Are you sure you want to discard it and open another task?",
     "no_permission": "You do not have permission to use this page",
-    "title_single": "Loading scheme"
+    "title_single": "Loading scheme",
+    "download_pdf": "Download PDF",
+    "assign_driver": "Assign to driver",
+    "assign_driver_title": "Assign scheme to driver",
+    "assign_task": "Task",
+    "driver": "Driver",
+    "driver_search_placeholder": "Type driver name...",
+    "select_driver": "Select driver",
+    "driver_not_found": "No drivers found",
+    "selected_driver": "Selected",
+    "cancel": "Cancel",
+    "create_task": "Create task",
+    "choose_driver_alert": "Select a driver.",
+    "scheme_view_description": "Review the approved loading scheme.",
+    "scheme_task_created": "Task created for driver.",
+    "scheme_task_create_error": "Could not create task for driver.",
+    "take_photo": "Take photo",
+    "gallery": "Gallery"
   }
 }

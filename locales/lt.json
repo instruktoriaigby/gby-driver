@@ -425,6 +425,23 @@
     "close_photo_hint": "Uždaryti: X arba paspauskite tamsų foną",
     "discard_confirm": "Jau pradėjote pildyti schemą. Ar tikrai nutraukti pildymą ir atidaryti kitą užduotį?",
     "no_permission": "Neturite teisės naudoti šio puslapio",
-    "title_single": "Krovimo schema"
+    "title_single": "Krovimo schema",
+    "download_pdf": "Atsisiųsti PDF",
+    "assign_driver": "Skirti vairuotojui",
+    "assign_driver_title": "Skirti schemą vairuotojui",
+    "assign_task": "Užduotis",
+    "driver": "Vairuotojas",
+    "driver_search_placeholder": "Rašykite vairuotojo vardą...",
+    "select_driver": "Pasirinkite vairuotoją",
+    "driver_not_found": "Vairuotojų nerasta",
+    "selected_driver": "Pasirinkta",
+    "cancel": "Atšaukti",
+    "create_task": "Sukurti užduotį",
+    "choose_driver_alert": "Pasirinkite vairuotoją.",
+    "scheme_view_description": "Peržiūrėti patvirtintą krovimo schemą.",
+    "scheme_task_created": "Užduotis vairuotojui sukurta.",
+    "scheme_task_create_error": "Nepavyko sukurti užduoties vairuotojui.",
+    "take_photo": "Fotografuoti",
+    "gallery": "Galerija"
   }
 }
