@@ -44,14 +44,38 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
   const currentUser = user;
   const role = profile.role || 'driver';
-  const canCreate = role === 'admin' || role === 'instructor';
-  const canApprove = role === 'admin' || role === 'instructor';
+
+  const transportMode =
+    profile?.effective_transport_mode ||
+    profile?.app_transport_mode ||
+    profile?.transport_mode ||
+    window.getAppTransportMode?.() ||
+    'car_transporter';
+
+  const isTruckMode = transportMode === 'truck';
+  const isDriverRole = role === 'driver' || role === 'truck_driver';
+
+  const driverRolesForMode = isTruckMode
+    ? ['truck_driver', 'truck_master_driver']
+    : ['driver', 'master_driver'];
+
+  const assignableDriverRole = isTruckMode ? 'truck_driver' : 'driver';
+
+  const canCreate =
+    role === 'admin' ||
+    role === 'instructor' ||
+    role === 'truck_instructor';
+
+  const canApprove =
+    role === 'admin' ||
+    role === 'instructor' ||
+    role === 'truck_instructor';
 
   if (createBlock) createBlock.classList.toggle('hidden', !canCreate);
-  if (filterUserWrap) filterUserWrap.classList.toggle('hidden', role === 'driver');
+  if (filterUserWrap) filterUserWrap.classList.toggle('hidden', isDriverRole);
 
   document.querySelectorAll('.assigned-col').forEach(el => {
-    el.classList.toggle('hidden', role === 'driver');
+    el.classList.toggle('hidden', isDriverRole);
   });
 
   if (taskStats) {
@@ -292,6 +316,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       description: row.description || '',
       type: row.type || 'general',
       lang: row.lang || 'lt',
+      transport_mode: row.transport_mode || 'car_transporter',
       video: row.video_url || '',
       test: row.test_url || '',
       pdf: row.pdf_url || '',
@@ -318,6 +343,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       instructionId: row.instruction_id,
       instrId: row.instruction_id,
       taskType: row.task_type || 'standard',
+      transport_mode: row.transport_mode || 'car_transporter',
       relatedTable: row.related_table || null,
       relatedId: row.related_id || null,
       groupId: row.group_id || null,
@@ -341,8 +367,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   async function loadDrivers() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role, lang, is_active, created_at')
-      .in('role', ['driver', 'master_driver'])
+      .select('id, full_name, email, role, lang, is_active, transport_mode, created_at')
+      .in('role', driverRolesForMode)
+      .eq('transport_mode', transportMode)
       .eq('is_active', true)
       .order('full_name', { ascending: true });
 
@@ -379,18 +406,23 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       groupMembers = membersData || [];
     }
 
-    groups = (groupsData || []).map(group => ({
-      ...group,
-      driverIds: groupMembers
-        .filter(member => member.group_id === group.id)
-        .map(member => member.driver_id)
-    }));
+    const allowedDriverIds = new Set(drivers.map(driver => driver.id));
+
+    groups = (groupsData || [])
+      .map(group => ({
+        ...group,
+        driverIds: groupMembers
+          .filter(member => member.group_id === group.id && allowedDriverIds.has(member.driver_id))
+          .map(member => member.driver_id)
+      }))
+      .filter(group => group.driverIds.length > 0);
   }
 
   async function loadInstructions() {
     const { data, error } = await supabase
       .from('instructions')
       .select('*')
+      .eq('transport_mode', transportMode)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -403,17 +435,24 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   }
 
   async function loadTasks() {
-    const { data, error } = await supabase
+    let query = supabase
       .from('tasks')
       .select('*')
+      .eq('transport_mode', transportMode)
       .order('created_at', { ascending: false });
+
+    if (isDriverRole) {
+      query = query.eq('driver_id', currentUser.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Tasks load error:', error);
       tasks = [];
       table.innerHTML = `
         <tr>
-          <td colspan="${role === 'driver' ? 4 : 5}" class="p-4 text-red-400">
+          <td colspan="${isDriverRole ? 4 : 5}" class="p-4 text-red-400">
             ${tx('tasks.load_error', 'Nepavyko užkrauti užduočių.')}
           </td>
         </tr>
@@ -495,7 +534,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
     select.disabled = false;
 
-    const normalDrivers = drivers.filter(driver => driver.role === 'driver');
+    const normalDrivers = drivers.filter(driver => driver.role === assignableDriverRole);
 
     select.innerHTML =
       `<option value="all">${tx('common.all_users', 'Visiems')}</option>` +
@@ -506,8 +545,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       select.value = currentValue;
     }
   }
-
-  function fillTaskInstructionOptions() {
+    function fillTaskInstructionOptions() {
     if (!instrSelect) return;
 
     const taskType = taskTypeSelect?.value || 'standard';
@@ -527,7 +565,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     instrSelect.innerHTML =
       `<option value="">${tx('common.select_instruction', 'Pasirink instrukciją')}</option>` +
       instructions
-        .filter(item => item.lang === selectedLang)
+        .filter(item => item.lang === selectedLang && item.transport_mode === transportMode)
         .map(item => `<option value="${item.id}">${escapeHtml(item.title)}</option>`)
         .join('');
   }
@@ -604,6 +642,10 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     const instr = filterInstr?.value || 'all';
 
     return tasks.filter(task => {
+      if ((task.transport_mode || 'car_transporter') !== transportMode) {
+        return false;
+      }
+
       const instruction = getInstructionById(task.instrId);
       const isDone = task.status === 'done';
       const needsApproval = Boolean(instruction?.test && task.testSubmittedAt && !isDone);
@@ -618,7 +660,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       return (
         (!search || task.title.toLowerCase().includes(search) || (task.desc || '').toLowerCase().includes(search)) &&
         statusOk &&
-        (role === 'driver' || !userSearch || (task.userLabel || '').toLowerCase().includes(userSearch)) &&
+        (isDriverRole || !userSearch || (task.userLabel || '').toLowerCase().includes(userSearch)) &&
         (instr === 'all' || String(task.instrId) === String(instr))
       );
     });
@@ -792,99 +834,21 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     return data?.publicUrl || '';
   }
 
-  async function updateLoadingSchemeStatus(schemeId, status, comment = null) {
-    const payload = {
-      status,
-      updated_at: new Date().toISOString()
-    };
+  function getSchemeTitle(cars) {
+    const first = cars?.[0];
 
-    if (comment !== null) payload.instructor_comment = comment;
-
-    if (status === 'approved') {
-      payload.approved_by = currentUser.id;
-      payload.approved_at = new Date().toISOString();
+    if (!first) {
+      return 'Schema';
     }
 
-    const { data: schemeBeforeUpdate } = await supabase
-      .from('loading_scheme_tasks')
-      .select('source_task_id')
-      .eq('id', schemeId)
-      .maybeSingle();
+    const make = String(first.car_make || '').trim();
+    const model = String(first.car_model || '').trim();
+    const count = Number(first.car_count || 0);
 
-    const { error } = await supabase
-      .from('loading_scheme_tasks')
-      .update(payload)
-      .eq('id', schemeId);
-
-    if (error) {
-      console.error('Loading scheme status error:', error);
-      showModal({
-        type: 'error',
-        title: 'Nepavyko atnaujinti',
-        message: 'Nepavyko atnaujinti krovimo schemos statuso.'
-      });
-      return false;
-    }
-
-    if (status === 'approved' && schemeBeforeUpdate?.source_task_id) {
-      await supabase
-        .from('tasks')
-        .update({
-          status: 'done',
-          approved_at: new Date().toISOString(),
-          approved_by: currentUser.id,
-          completion_type: 'loading_scheme'
-        })
-        .eq('id', schemeBeforeUpdate.source_task_id);
-    }
-
-    return true;
+    return `Schema ${[make, model].filter(Boolean).join(' ')}${count ? ` - ${count} vnt` : ''}`;
   }
 
-  async function openLoadingSchemeModal(taskId) {
-    if (!instructionModal || !instructionModalTitle || !instructionModalBody || !instructionModalFooter) return;
-
-    const { data: scheme, error } = await supabase
-      .from('loading_scheme_tasks')
-      .select('*')
-      .eq('source_task_id', taskId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Loading scheme load error:', error);
-      showModal({
-        type: 'error',
-        title: 'Klaida',
-        message: 'Nepavyko užkrauti krovimo schemos.'
-      });
-      return;
-    }
-
-    if (!scheme) {
-      showModal({
-        type: 'warning',
-        title: 'Schema dar nepateikta',
-        message: 'Šiai užduočiai dar nėra pateiktos krovimo schemos. Ji atsiras, kai Master Driver ją užpildys ir pateiks patvirtinimui.'
-      });
-      return;
-    }
-
-    const [{ data: cars }, { data: photos }] = await Promise.all([
-      supabase
-        .from('loading_scheme_cars')
-        .select('*')
-        .eq('scheme_id', scheme.id)
-        .order('sort_order', { ascending: true }),
-
-      supabase
-        .from('loading_scheme_photos')
-        .select('*')
-        .eq('scheme_id', scheme.id)
-        .order('created_at', { ascending: true })
-    ]);
-
+  function buildLoadingSchemeHtml(scheme, cars, photos) {
     const photoLabels = {
       truck_side_required: tx('loading_schemes.photo_truck_side', 'Autovežis iš šono'),
       trailer_side_required: tx('loading_schemes.photo_trailer_side', 'Priekaba iš šono'),
@@ -894,9 +858,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       extra_3: tx('loading_schemes.extra_3', 'Papildoma 3')
     };
 
-    instructionModalTitle.textContent = tx('loading_schemes.title_single', 'Krovimo schema');
-
-    instructionModalBody.innerHTML = `
+    return `
       <div class="space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div class="bg-slate-800 rounded-xl p-3 border border-slate-700">
@@ -973,8 +935,173 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
         </div>
       </div>
     `;
+  }
+    async function markLoadingSchemeViewDone(task) {
+  if (!isDriverRole) return false;
+  if (!task?.id) return false;
+  if (task.status === 'done') return true;
 
+  const { error } = await supabase
+    .from('tasks')
+    .update({
+      status: 'done'
+    })
+    .eq('id', task.id)
+    .eq('driver_id', currentUser.id)
+    .eq('task_type', 'loading_scheme')
+    .eq('transport_mode', transportMode);
+
+  if (error) {
+    console.error('Loading scheme view completion error:', error);
+
+    showModal({
+      type: 'error',
+      title: tx('tasks.update_error_title', 'Nepavyko atnaujinti'),
+      message: error.message || tx('tasks.update_error_message', 'Nepavyko atnaujinti užduoties.')
+    });
+
+    return false;
+  }
+
+  await loadTasks();
+  initFilters();
+  render();
+
+  window.addEventListener('tasksUpdated', async () => {
+    await updateTasksBadge();
+});
+  return true;
+}
+
+  async function updateLoadingSchemeStatus(schemeId, status, comment = null) {
+    const payload = {
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    if (comment !== null) payload.instructor_comment = comment;
+
+    if (status === 'approved') {
+      payload.approved_by = currentUser.id;
+      payload.approved_at = new Date().toISOString();
+    }
+
+    const { data: schemeBeforeUpdate } = await supabase
+      .from('loading_scheme_tasks')
+      .select('source_task_id')
+      .eq('id', schemeId)
+      .eq('transport_mode', transportMode)
+      .maybeSingle();
+
+    const { error } = await supabase
+      .from('loading_scheme_tasks')
+      .update(payload)
+      .eq('id', schemeId)
+      .eq('transport_mode', transportMode);
+
+    if (error) {
+      console.error('Loading scheme status error:', error);
+      showModal({
+        type: 'error',
+        title: 'Nepavyko atnaujinti',
+        message: 'Nepavyko atnaujinti krovimo schemos statuso.'
+      });
+      return false;
+    }
+
+    if (status === 'approved' && schemeBeforeUpdate?.source_task_id) {
+      await supabase
+        .from('tasks')
+        .update({
+          status: 'done',
+          approved_at: new Date().toISOString(),
+          approved_by: currentUser.id,
+          completion_type: 'loading_scheme'
+        })
+        .eq('id', schemeBeforeUpdate.source_task_id)
+        .eq('transport_mode', transportMode);
+    }
+
+    return true;
+  }
+
+  async function openLoadingSchemeModal(taskId) {
+    if (!instructionModal || !instructionModalTitle || !instructionModalBody || !instructionModalFooter) return;
+
+    const task = tasks.find(item => String(item.id) === String(taskId));
+    if (!task) return;
+
+    let schemeQuery = supabase
+      .from('loading_scheme_tasks')
+      .select('*')
+      .eq('transport_mode', transportMode)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (task.relatedTable === 'loading_scheme_tasks' && task.relatedId) {
+      schemeQuery = schemeQuery.eq('id', task.relatedId);
+    } else {
+      schemeQuery = schemeQuery.eq('source_task_id', taskId);
+    }
+
+    const { data: scheme, error } = await schemeQuery.maybeSingle();
+
+    if (error) {
+      console.error('Loading scheme load error:', error);
+      showModal({
+        type: 'error',
+        title: 'Klaida',
+        message: 'Nepavyko užkrauti krovimo schemos.'
+      });
+      return;
+    }
+
+    if (!scheme) {
+      showModal({
+        type: 'warning',
+        title: 'Schema dar nepateikta',
+        message: 'Šiai užduočiai dar nėra pateiktos krovimo schemos. Ji atsiras, kai Master Driver ją užpildys ir pateiks patvirtinimui.'
+      });
+      return;
+    }
+
+    const [{ data: cars }, { data: photos }] = await Promise.all([
+      supabase
+        .from('loading_scheme_cars')
+        .select('*')
+        .eq('scheme_id', scheme.id)
+        .order('sort_order', { ascending: true }),
+
+      supabase
+        .from('loading_scheme_photos')
+        .select('*')
+        .eq('scheme_id', scheme.id)
+        .order('created_at', { ascending: true })
+    ]);
+
+    instructionModalTitle.textContent = getSchemeTitle(cars || []);
+    instructionModalBody.innerHTML = buildLoadingSchemeHtml(scheme, cars || [], photos || []);
     instructionModalFooter.innerHTML = '';
+
+    if (isDriverRole && task.taskType === 'loading_scheme' && task.relatedTable === 'loading_scheme_tasks' && task.status !== 'done') {
+      const waitText = document.createElement('div');
+      waitText.className = 'text-slate-300';
+      waitText.textContent = 'Užduotis bus pažymėta kaip įvykdyta po 5 s peržiūros.';
+      instructionModalFooter.appendChild(waitText);
+
+      window.taskModalTimer = setTimeout(async () => {
+  const ok = await markLoadingSchemeViewDone(task);
+
+  if (!ok) {
+    waitText.textContent = tx('tasks.update_error_message', 'Nepavyko atnaujinti užduoties.');
+    waitText.className = 'text-red-400';
+    return;
+  }
+
+  waitText.textContent = tx('tasks.done', 'Įvykdyta');
+  waitText.className = 'text-green-400';
+}, 5000);
+    }
 
     if (canApprove && ['waiting_approval', 'needs_changes', 'rejected'].includes(scheme.status)) {
       instructionModalFooter.innerHTML = `
@@ -996,80 +1123,82 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   }
 
   async function updateTruckAcceptanceReviewStatus(task, status, comment = '', actions = {}) {
-  const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-  const { error: reviewError } = await supabase
-    .from('truck_acceptance_reviews')
-    .update({
-      status,
-      instructor_comment: comment || null,
-      action_driver_instruction: Boolean(actions.driver_instruction),
-      action_service: Boolean(actions.service),
-      action_bonus: Boolean(actions.bonus),
-      action_no_action: Boolean(actions.no_action),
-      action_car_wash: Boolean(actions.car_wash),
-      action_inventory_needed: Boolean(actions.inventory_needed),
-      action_work_clothes_needed: Boolean(actions.work_clothes_needed),
-      action_other: Boolean(actions.other),
-      action_other_text: actions.other_text || null,
-      reviewed_by: currentUser.id,
-      reviewed_at: now,
-      updated_at: now
-    })
-    .eq('task_id', task.id);
-
-  if (reviewError) {
-    console.error('Truck acceptance review update error:', reviewError);
-
-    showModal({
-      type: 'error',
-      title: 'Nepavyko atnaujinti',
-      message: 'Nepavyko atnaujinti vilkiko priėmimo patvirtinimo.'
-    });
-
-    return false;
-  }
-
-  const taskPatch = {
-    status: status === 'approved' ? 'done' : 'pending',
-    approved_at: status === 'approved' ? now : null,
-    approved_by: status === 'approved' ? currentUser.id : null,
-    instructor_comment: comment || null
-  };
-
-  const { error: taskError } = await supabase
-    .from('tasks')
-    .update(taskPatch)
-    .eq('id', task.id);
-
-  if (taskError) {
-    console.error('Truck acceptance task update error:', taskError);
-
-    showModal({
-      type: 'error',
-      title: 'Nepavyko atnaujinti',
-      message: taskError.message || 'Ataskaita atnaujinta, bet nepavyko atnaujinti užduoties statuso.'
-    });
-
-    return false;
-  }
-
-  if (task.relatedId) {
-    const { error: reportError } = await supabase
-      .from('truck_acceptance_reports')
+    const { error: reviewError } = await supabase
+      .from('truck_acceptance_reviews')
       .update({
         status,
+        instructor_comment: comment || null,
+        action_driver_instruction: Boolean(actions.driver_instruction),
+        action_service: Boolean(actions.service),
+        action_bonus: Boolean(actions.bonus),
+        action_no_action: Boolean(actions.no_action),
+        action_car_wash: Boolean(actions.car_wash),
+        action_inventory_needed: Boolean(actions.inventory_needed),
+        action_work_clothes_needed: Boolean(actions.work_clothes_needed),
+        action_other: Boolean(actions.other),
+        action_other_text: actions.other_text || null,
+        reviewed_by: currentUser.id,
+        reviewed_at: now,
         updated_at: now
       })
-      .eq('id', task.relatedId);
+      .eq('task_id', task.id);
 
-    if (reportError) {
-      console.error('Truck acceptance report update error:', reportError);
+    if (reviewError) {
+      console.error('Truck acceptance review update error:', reviewError);
+
+      showModal({
+        type: 'error',
+        title: 'Nepavyko atnaujinti',
+        message: 'Nepavyko atnaujinti vilkiko priėmimo patvirtinimo.'
+      });
+
+      return false;
     }
-  }
 
-  return true;
-}
+    const taskPatch = {
+      status: status === 'approved' ? 'done' : 'pending',
+      approved_at: status === 'approved' ? now : null,
+      approved_by: status === 'approved' ? currentUser.id : null,
+      instructor_comment: comment || null
+    };
+
+    const { error: taskError } = await supabase
+      .from('tasks')
+      .update(taskPatch)
+      .eq('id', task.id)
+      .eq('transport_mode', transportMode);
+
+    if (taskError) {
+      console.error('Truck acceptance task update error:', taskError);
+
+      showModal({
+        type: 'error',
+        title: 'Nepavyko atnaujinti',
+        message: taskError.message || 'Ataskaita atnaujinta, bet nepavyko atnaujinti užduoties statuso.'
+      });
+
+      return false;
+    }
+
+    if (task.relatedId) {
+      const { error: reportError } = await supabase
+        .from('truck_acceptance_reports')
+        .update({
+          status,
+          updated_at: now
+        })
+        .eq('id', task.relatedId)
+        .eq('transport_mode', transportMode);
+
+      if (reportError) {
+        console.error('Truck acceptance report update error:', reportError);
+      }
+    }
+
+    return true;
+  }
 
   async function saveTruckAcceptanceDecision(task, status) {
     const comment = document.getElementById('truckAcceptanceComment')?.value?.trim() || '';
@@ -1126,6 +1255,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
         .from('truck_acceptance_reports')
         .select('*')
         .eq('id', reportId)
+        .eq('transport_mode', transportMode)
         .maybeSingle(),
 
       supabase
@@ -1151,6 +1281,17 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       return;
     }
 
+    const reportMode = report.transport_mode || transportMode || 'car_transporter';
+    const isTruckReport = reportMode === 'truck';
+
+    const trailerTypeLabel = isTruckReport
+      ? tx('truck_acceptance.semi_trailer_type', 'Puspriekabės tipas')
+      : tx('truck_acceptance.trailer_type', 'Autovežio tipas');
+
+    const exteriorCleanlinessLabel = isTruckReport
+      ? tx('truck_acceptance.truck_exterior_cleanliness', 'Vilkiko išorinė švara')
+      : tx('truck_acceptance.exterior_cleanliness', 'Autovežio išorinė švara');
+
     const qualityLabels = {
       block: 'Blokas',
       warning: 'Įspėjimas',
@@ -1161,7 +1302,18 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       ok: 'Be pažeidimų',
       working: 'Veikia',
       not_working: 'Neveikia',
-      damaged_lights: 'Pažeisti'
+      damaged_lights: 'Pažeisti',
+
+      Blokas: 'Blokas',
+      Įspėjimas: 'Įspėjimas',
+      Gerai: 'Gerai',
+      Puikiai: 'Puikiai',
+      'Su pažeidimais': 'Su pažeidimais',
+      'Minimalūs pažeidimai': 'Minimalūs pažeidimai',
+      'Be pažeidimų': 'Be pažeidimų',
+      Veikia: 'Veikia',
+      Neveikia: 'Neveikia',
+      Pažeisti: 'Pažeisti'
     };
 
     function q(value) {
@@ -1172,6 +1324,82 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       if (value === null || value === undefined || value === '') return '-';
       return `${value} bar`;
     }
+
+    function qualityRow(label, value) {
+      return `
+        <div>${escapeHtml(label)}: <b>${escapeHtml(q(value))}</b></div>
+      `;
+    }
+
+    const qualityRows = isTruckReport
+      ? [
+          qualityRow(
+            tx('truck_acceptance.semi_trailer_condition', 'Puspriekabės būklė'),
+            report.semi_trailer_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.straps', 'Tvirtinimo diržai'),
+            report.straps_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.work_inventory', 'Kitas inventorius'),
+            report.work_inventory_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.fastening', 'Tvirtinimas'),
+            report.fastening_condition
+          ),
+          qualityRow(
+            exteriorCleanlinessLabel,
+            report.truck_exterior_cleanliness
+          ),
+          qualityRow(
+            tx('truck_acceptance.windshield', 'Priekinis stiklas'),
+            report.windshield_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.lights', 'Žibintai'),
+            report.lights_condition
+          )
+        ].join('')
+      : [
+          qualityRow(
+            tx('truck_acceptance.platform_condition', 'Platformos būklė'),
+            report.platform_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.platform_order', 'Tvarka ant platformos'),
+            report.platform_order
+          ),
+          qualityRow(
+            tx('truck_acceptance.safety_fences', 'Apsauginės tvoros'),
+            report.safety_fences_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.straps', 'Tvirtinimo diržai'),
+            report.straps_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.work_inventory', 'Kitas inventorius'),
+            report.work_inventory_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.fastening', 'Tvirtinimas'),
+            report.fastening_condition
+          ),
+          qualityRow(
+            exteriorCleanlinessLabel,
+            report.exterior_cleanliness
+          ),
+          qualityRow(
+            tx('truck_acceptance.windshield', 'Priekinis stiklas'),
+            report.windshield_condition
+          ),
+          qualityRow(
+            tx('truck_acceptance.lights', 'Žibintai'),
+            report.lights_condition
+          )
+        ].join('');
 
     const photoHtml = (photos || []).map(photo => {
       const url = getTruckAcceptancePhotoUrl(photo.file_path);
@@ -1189,168 +1417,162 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       `;
     }).join('');
 
-    instructionModalTitle.textContent = 'Vilkiko priėmimo ataskaita';
+    instructionModalTitle.textContent = tx(
+      'truck_acceptance.report_title',
+      'Vilkiko priėmimo ataskaita'
+    );
 
     instructionModalBody.innerHTML = `
       <div class="space-y-4">
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-            <div class="text-slate-400">Data</div>
+            <div class="text-slate-400">${tx('truck_acceptance.date', 'Data')}</div>
             <div class="font-semibold">${escapeHtml(report.report_date || '-')}</div>
           </div>
 
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-            <div class="text-slate-400">Vairuotojas</div>
+            <div class="text-slate-400">${tx('truck_acceptance.driver', 'Vairuotojas')}</div>
             <div class="font-semibold">${escapeHtml(report.driver_name || '-')}</div>
           </div>
 
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-            <div class="text-slate-400">Vilkikas</div>
+            <div class="text-slate-400">${tx('truck_acceptance.truck_number', 'Vilkikas')}</div>
             <div class="font-semibold">${escapeHtml(report.truck_number || '-')}</div>
           </div>
 
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-            <div class="text-slate-400">Autovežio tipas</div>
+            <div class="text-slate-400">${escapeHtml(trailerTypeLabel)}</div>
             <div class="font-semibold">${escapeHtml(report.trailer_type || '-')}</div>
           </div>
         </div>
 
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-          <h3 class="font-semibold mb-3">Padangų slėgiai</h3>
+          <h3 class="font-semibold mb-3">${tx('truck_acceptance.tire_pressure', 'Padangų slėgiai')}</h3>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-300">
-            <div>Priekinė kairė: <b>${pressure(report.front_left_pressure)}</b></div>
-            <div>Priekinė dešinė: <b>${pressure(report.front_right_pressure)}</b></div>
-            <div>Tinginys kairė: <b>${pressure(report.lazy_left_pressure)}</b></div>
-            <div>Tinginys dešinė: <b>${pressure(report.lazy_right_pressure)}</b></div>
-            <div>Varomoji išorinė kairė: <b>${pressure(report.drive_outer_left_pressure)}</b></div>
-            <div>Varomoji vidinė kairė: <b>${pressure(report.drive_inner_left_pressure)}</b></div>
-            <div>Varomoji vidinė dešinė: <b>${pressure(report.drive_inner_right_pressure)}</b></div>
-            <div>Varomoji išorinė dešinė: <b>${pressure(report.drive_outer_right_pressure)}</b></div>
+            <div>${tx('truck_acceptance.front_left', 'Priekinė kairė')}: <b>${pressure(report.front_left_pressure)}</b></div>
+            <div>${tx('truck_acceptance.front_right', 'Priekinė dešinė')}: <b>${pressure(report.front_right_pressure)}</b></div>
+            <div>${tx('truck_acceptance.lazy_left', 'Tinginys kairė')}: <b>${pressure(report.lazy_left_pressure)}</b></div>
+            <div>${tx('truck_acceptance.lazy_right', 'Tinginys dešinė')}: <b>${pressure(report.lazy_right_pressure)}</b></div>
+            <div>${tx('truck_acceptance.drive_outer_left', 'Varomoji išorinė kairė')}: <b>${pressure(report.drive_outer_left_pressure)}</b></div>
+            <div>${tx('truck_acceptance.drive_inner_left', 'Varomoji vidinė kairė')}: <b>${pressure(report.drive_inner_left_pressure)}</b></div>
+            <div>${tx('truck_acceptance.drive_inner_right', 'Varomoji vidinė dešinė')}: <b>${pressure(report.drive_inner_right_pressure)}</b></div>
+            <div>${tx('truck_acceptance.drive_outer_right', 'Varomoji išorinė dešinė')}: <b>${pressure(report.drive_outer_right_pressure)}</b></div>
           </div>
         </div>
-
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-          <h3 class="font-semibold mb-3">Priekabos ašys</h3>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
+          <h3 class="font-semibold mb-3">${tx('truck_acceptance.trailer_axles', 'Priekabos ašys')}</h3>
 
           <div class="space-y-3 text-sm text-slate-300">
             <div class="bg-slate-900 border border-slate-700 rounded-xl p-3">
-              <div class="font-semibold mb-2">1 ašis: ${escapeHtml(report.trailer_axle_1_type || '-')}</div>
+              <div class="font-semibold mb-2">1 ${tx('truck_acceptance.axle', 'ašis')}: ${escapeHtml(report.trailer_axle_1_type || '-')}</div>
               <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div>Kairė išorinė: <b>${pressure(report.trailer_axle_1_left_outer)}</b></div>
-                <div>Kairė vidinė: <b>${pressure(report.trailer_axle_1_left_inner)}</b></div>
-                <div>Dešinė vidinė: <b>${pressure(report.trailer_axle_1_right_inner)}</b></div>
-                <div>Dešinė išorinė: <b>${pressure(report.trailer_axle_1_right_outer)}</b></div>
+                <div>${tx('truck_acceptance.outer_left', 'Kairė išorinė')}: <b>${pressure(report.trailer_axle_1_left_outer)}</b></div>
+                <div>${tx('truck_acceptance.inner_left', 'Kairė vidinė')}: <b>${pressure(report.trailer_axle_1_left_inner)}</b></div>
+                <div>${tx('truck_acceptance.inner_right', 'Dešinė vidinė')}: <b>${pressure(report.trailer_axle_1_right_inner)}</b></div>
+                <div>${tx('truck_acceptance.outer_right', 'Dešinė išorinė')}: <b>${pressure(report.trailer_axle_1_right_outer)}</b></div>
               </div>
             </div>
 
             <div class="bg-slate-900 border border-slate-700 rounded-xl p-3">
-              <div class="font-semibold mb-2">2 ašis: ${escapeHtml(report.trailer_axle_2_type || '-')}</div>
+              <div class="font-semibold mb-2">2 ${tx('truck_acceptance.axle', 'ašis')}: ${escapeHtml(report.trailer_axle_2_type || '-')}</div>
               <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div>Kairė išorinė: <b>${pressure(report.trailer_axle_2_left_outer)}</b></div>
-                <div>Kairė vidinė: <b>${pressure(report.trailer_axle_2_left_inner)}</b></div>
-                <div>Dešinė vidinė: <b>${pressure(report.trailer_axle_2_right_inner)}</b></div>
-                <div>Dešinė išorinė: <b>${pressure(report.trailer_axle_2_right_outer)}</b></div>
+                <div>${tx('truck_acceptance.outer_left', 'Kairė išorinė')}: <b>${pressure(report.trailer_axle_2_left_outer)}</b></div>
+                <div>${tx('truck_acceptance.inner_left', 'Kairė vidinė')}: <b>${pressure(report.trailer_axle_2_left_inner)}</b></div>
+                <div>${tx('truck_acceptance.inner_right', 'Dešinė vidinė')}: <b>${pressure(report.trailer_axle_2_right_inner)}</b></div>
+                <div>${tx('truck_acceptance.outer_right', 'Dešinė išorinė')}: <b>${pressure(report.trailer_axle_2_right_outer)}</b></div>
               </div>
             </div>
 
             <div class="bg-slate-900 border border-slate-700 rounded-xl p-3">
-              <div class="font-semibold mb-2">3 ašis: ${escapeHtml(report.trailer_axle_3_type || '-')}</div>
+              <div class="font-semibold mb-2">3 ${tx('truck_acceptance.axle', 'ašis')}: ${escapeHtml(report.trailer_axle_3_type || '-')}</div>
               <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div>Kairė išorinė: <b>${pressure(report.trailer_axle_3_left_outer)}</b></div>
-                <div>Kairė vidinė: <b>${pressure(report.trailer_axle_3_left_inner)}</b></div>
-                <div>Dešinė vidinė: <b>${pressure(report.trailer_axle_3_right_inner)}</b></div>
-                <div>Dešinė išorinė: <b>${pressure(report.trailer_axle_3_right_outer)}</b></div>
+                <div>${tx('truck_acceptance.outer_left', 'Kairė išorinė')}: <b>${pressure(report.trailer_axle_3_left_outer)}</b></div>
+                <div>${tx('truck_acceptance.inner_left', 'Kairė vidinė')}: <b>${pressure(report.trailer_axle_3_left_inner)}</b></div>
+                <div>${tx('truck_acceptance.inner_right', 'Dešinė vidinė')}: <b>${pressure(report.trailer_axle_3_right_inner)}</b></div>
+                <div>${tx('truck_acceptance.outer_right', 'Dešinė išorinė')}: <b>${pressure(report.trailer_axle_3_right_outer)}</b></div>
               </div>
             </div>
           </div>
         </div>
 
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-          <h3 class="font-semibold mb-3">Kokybės įvertinimas</h3>
+          <h3 class="font-semibold mb-3">${tx('truck_acceptance.quality', 'Kokybės įvertinimas')}</h3>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-300">
-            <div>Platformos būklė: <b>${escapeHtml(q(report.platform_condition))}</b></div>
-            <div>Tvarka ant platformos: <b>${escapeHtml(q(report.platform_order))}</b></div>
-            <div>Apsauginės tvoros: <b>${escapeHtml(q(report.safety_fences_condition))}</b></div>
-            <div>Tvirtinimo diržai: <b>${escapeHtml(q(report.straps_condition))}</b></div>
-            <div>Kitas inventorius: <b>${escapeHtml(q(report.work_inventory_condition))}</b></div>
-            <div>Tvirtinimas: <b>${escapeHtml(q(report.fastening_condition))}</b></div>
-            <div>Išorinė švara: <b>${escapeHtml(q(report.exterior_cleanliness))}</b></div>
-            <div>Priekinis stiklas: <b>${escapeHtml(q(report.windshield_condition))}</b></div>
-            <div>Žibintai: <b>${escapeHtml(q(report.lights_condition))}</b></div>
+            ${qualityRows}
           </div>
         </div>
 
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-          <h3 class="font-semibold mb-2">Pastabos</h3>
+          <h3 class="font-semibold mb-2">${tx('truck_acceptance.notes', 'Pastabos')}</h3>
           <div class="whitespace-pre-line text-slate-300">${escapeHtml(report.notes || '-')}</div>
         </div>
 
         <div>
-          <h3 class="font-semibold mb-3">Nuotraukos</h3>
+          <h3 class="font-semibold mb-3">${tx('truck_acceptance.photos', 'Nuotraukos')}</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            ${photoHtml || '<div class="text-slate-400">Nuotraukų nėra</div>'}
+            ${photoHtml || `<div class="text-slate-400">${tx('truck_acceptance.no_photos', 'Nuotraukų nėra')}</div>`}
           </div>
         </div>
 
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-3">
-          <h3 class="font-semibold mb-3">Instruktoriaus sprendimas</h3>
+          <h3 class="font-semibold mb-3">${tx('truck_acceptance.instructor_decision', 'Instruktoriaus sprendimas')}</h3>
 
-          <label class="block text-sm text-slate-400 mb-1">Komentaras</label>
+          <label class="block text-sm text-slate-400 mb-1">${tx('truck_acceptance.comment', 'Komentaras')}</label>
           <textarea
             id="truckAcceptanceComment"
             class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white min-h-[90px]"
-            placeholder="Komentaras, jeigu yra neatitikimų..."
+            placeholder="${tx('truck_acceptance.comment_placeholder', 'Komentaras, jeigu yra neatitikimų...')}"
           >${escapeHtml(review?.instructor_comment || '')}</textarea>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 text-sm">
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionDriverInstruction" type="checkbox" ${review?.action_driver_instruction ? 'checked' : ''}>
-              <span>Vairuotojo instruktavimas</span>
+              <span>${tx('truck_acceptance.action_driver_instruction', 'Vairuotojo instruktavimas')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionService" type="checkbox" ${review?.action_service ? 'checked' : ''}>
-              <span>Servisas</span>
+              <span>${tx('truck_acceptance.action_service', 'Servisas')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionBonus" type="checkbox" ${review?.action_bonus ? 'checked' : ''}>
-              <span>Premija</span>
+              <span>${tx('truck_acceptance.action_bonus', 'Premija')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionNoAction" type="checkbox" ${review?.action_no_action ? 'checked' : ''}>
-              <span>Jokių veiksmų nereikia</span>
+              <span>${tx('truck_acceptance.action_no_action', 'Jokių veiksmų nereikia')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionCarWash" type="checkbox" ${review?.action_car_wash ? 'checked' : ''}>
-              <span>Plovykla</span>
+              <span>${tx('truck_acceptance.action_car_wash', 'Plovykla')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionInventoryNeeded" type="checkbox" ${review?.action_inventory_needed ? 'checked' : ''}>
-              <span>Reikalingas inventorius</span>
+              <span>${tx('truck_acceptance.action_inventory_needed', 'Reikalingas inventorius')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionWorkClothesNeeded" type="checkbox" ${review?.action_work_clothes_needed ? 'checked' : ''}>
-              <span>Reikalingi darbo rūbai</span>
+              <span>${tx('truck_acceptance.action_work_clothes_needed', 'Reikalingi darbo rūbai')}</span>
             </label>
 
             <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-3">
               <input id="taActionOther" type="checkbox" ${review?.action_other ? 'checked' : ''}>
-              <span>Kita</span>
+              <span>${tx('truck_acceptance.action_other', 'Kita')}</span>
             </label>
           </div>
 
           <input
             id="taActionOtherText"
             class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white mt-3"
-            placeholder="Kita — įrašyti"
+            placeholder="${tx('truck_acceptance.action_other_placeholder', 'Kita — įrašyti')}"
             value="${escapeHtml(review?.action_other_text || '')}"
           >
         </div>
@@ -1362,15 +1584,15 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     if (canApprove) {
       instructionModalFooter.innerHTML = `
         <button type="button" class="truck-acceptance-approve bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl">
-          Patvirtinti
+          ${tx('truck_acceptance.approve', 'Patvirtinti')}
         </button>
 
         <button type="button" class="truck-acceptance-return bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-xl">
-          Grąžinti taisymui
+          ${tx('truck_acceptance.return_for_fix', 'Grąžinti taisymui')}
         </button>
 
         <button type="button" class="truck-acceptance-reject bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl">
-          Atmesti
+          ${tx('truck_acceptance.reject', 'Atmesti')}
         </button>
       `;
 
@@ -1397,7 +1619,8 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     const { error } = await supabase
       .from('tasks')
       .update(patch)
-      .eq('id', taskId);
+      .eq('id', taskId)
+      .eq('transport_mode', transportMode);
 
     if (error) {
       console.error('Task update error:', error);
@@ -1502,7 +1725,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     instructionModalFooter.innerHTML = '';
 
     if (task.status !== 'done') {
-      if (role === 'driver') {
+      if (isDriverRole) {
         if (instr?.test) {
           const testLink = document.createElement('a');
           testLink.href = instr.test;
@@ -1736,7 +1959,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     let groupId = null;
 
     if (taskType !== 'loading_scheme') {
-      const normalDrivers = drivers.filter(driver => driver.role === 'driver');
+      const normalDrivers = drivers.filter(driver => driver.role === assignableDriverRole);
 
       if (selectedUser === 'all') {
         targetDrivers = normalDrivers;
@@ -1770,6 +1993,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
           instruction_id: null,
           group_id: null,
           task_type: 'loading_scheme',
+          transport_mode: transportMode,
+          related_table: null,
+          related_id: null,
           created_by: currentUser.id,
           created_at: now,
           approved_at: null,
@@ -1784,6 +2010,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
           instruction_id: instrId,
           group_id: groupId,
           task_type: taskType,
+          transport_mode: transportMode,
+          related_table: null,
+          related_id: null,
           created_by: currentUser.id,
           created_at: now,
           approved_at: done ? now : null,
@@ -1916,7 +2145,8 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       const { error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', task.id);
+        .eq('id', task.id)
+        .eq('transport_mode', transportMode);
 
       if (error) {
         console.error('Task delete error:', error);
@@ -1948,7 +2178,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     if (task.taskType === 'loading_scheme') {
       return `
         <button class="open-loading-scheme text-blue-400 underline" data-id="${task.id}">
-          ${tx('tasks.loading_scheme_task', 'Krovimo schema')}
+          ${task.relatedTable === 'loading_scheme_tasks'
+            ? 'Peržiūrėti schemą'
+            : tx('tasks.loading_scheme_task', 'Krovimo schema')}
         </button>
       `;
     }
@@ -1976,7 +2208,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     if (task.taskType === 'loading_scheme') {
       return `
         <button class="open-loading-scheme bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs" data-id="${task.id}">
-          ${tx('tasks.open_schemes', 'Atidaryti schemas')}
+          ${task.relatedTable === 'loading_scheme_tasks'
+            ? 'Peržiūrėti'
+            : tx('tasks.open_schemes', 'Atidaryti schemas')}
         </button>
 
         ${role === 'admin'
@@ -2000,7 +2234,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
                 `
                 : `<span class="text-green-400 text-xs">✔</span>`
             )
-          : role === 'driver'
+          : isDriverRole
             ? (instruction?.test
                 ? (task.testSubmittedAt
                     ? `<span class="text-slate-300 text-xs">${tx('tasks.waiting_for_approval', 'Laukia patvirtinimo')}</span>`
@@ -2027,7 +2261,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     if (!list.length) {
       table.innerHTML = `
         <tr>
-          <td colspan="${role === 'driver' ? 4 : 5}" class="p-4 text-slate-400">
+          <td colspan="${isDriverRole ? 4 : 5}" class="p-4 text-slate-400">
             ${tx('tasks.no_tasks', 'Nėra užduočių')}
           </td>
         </tr>
@@ -2053,7 +2287,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
             </span>
           </td>
 
-          ${role === 'driver' ? '' : `<td class="p-3 assigned-col">${escapeHtml(task.userLabel || '-')}</td>`}
+          ${isDriverRole ? '' : `<td class="p-3 assigned-col">${escapeHtml(task.userLabel || '-')}</td>`}
 
           <td class="p-3">
             ${renderInstructionCell(task, instruction)}

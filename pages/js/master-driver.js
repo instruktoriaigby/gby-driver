@@ -5,21 +5,56 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const value = t(key);
     return value && value !== key ? value : fallback;
   };
+
   const role = profile?.role || 'driver';
-  const canManage = ['admin', 'instructor', 'master_driver'].includes(role);
-  const canReview = ['admin', 'instructor'].includes(role);
-  const canOpenPage = ['admin', 'instructor', 'master_driver', 'driver'].includes(role);
+ const canSchemeActions = [
+    'admin',
+    'instructor',
+    'truck_instructor'
+  ].includes(role);
+
+  const transportMode =
+    profile?.effective_transport_mode ||
+    profile?.app_transport_mode ||
+    profile?.transport_mode ||
+    window.getAppTransportMode?.() ||
+    'car_transporter';
+
+  const isTruckMode = transportMode === 'truck';
+  const GBY_LOGO_SRC = '/Logo_GBY.jpg';
+
+  const canManage = [
+    'admin',
+    'instructor',
+    'master_driver',
+    'truck_instructor',
+    'truck_master_driver'
+  ].includes(role);
+
+  const canReview = [
+    'admin',
+    'instructor',
+    'truck_instructor'
+  ].includes(role);
+
+  const canAssignScheme = canSchemeActions;
+
+  const canOpenPage = [
+    'admin',
+    'instructor',
+    'master_driver',
+    'driver',
+    'truck_instructor',
+    'truck_master_driver',
+    'truck_driver'
+  ].includes(role);
+
+  const driverRolesForMode = isTruckMode ? ['truck_driver'] : ['driver'];
 
   if (!canOpenPage) {
     alert(tx('loading_schemes.no_permission', 'Neturite teisės naudoti šio puslapio'));
-    window.navigateTo('dashboard');
+    window.navigateTo?.('dashboard');
     return;
-  }
-
-  function tr(key, fallback) {
-    const value = t(key);
-    if (!value || value === key) return fallback;
-    return value;
   }
 
   const state = {
@@ -31,7 +66,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
     models: {},
     carRows: [],
     selectedSourceTaskId: '',
-    files: new Map()
+    files: new Map(),
+    drivers: []
   };
 
   const requiredPhotoCategories = [
@@ -48,11 +84,6 @@ export async function initMasterDriver({ supabase, user, profile }) {
     extra_2: ['loading_schemes.extra_2', 'Papildoma 2'],
     extra_3: ['loading_schemes.extra_3', 'Papildoma 3']
   };
-
-  function photoLabel(category) {
-    const cfg = photoLabelKeys[category];
-    return cfg ? tr(cfg[0], cfg[1]) : category;
-  }
 
   const el = {
     manageArea: document.getElementById('ksManageArea'),
@@ -79,6 +110,11 @@ export async function initMasterDriver({ supabase, user, profile }) {
     el.manageArea.classList.add('hidden');
   }
 
+  function tr(key, fallback) {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -90,6 +126,11 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
   function text(id) {
     return document.getElementById(id)?.value?.trim() || null;
+  }
+
+  function photoLabel(category) {
+    const cfg = photoLabelKeys[category];
+    return cfg ? tr(cfg[0], cfg[1]) : category;
   }
 
   function statusLabel(status) {
@@ -119,6 +160,43 @@ export async function initMasterDriver({ supabase, user, profile }) {
       .getPublicUrl(filePath);
 
     return data?.publicUrl || '';
+  }
+
+  async function getLogoDataUrl() {
+    const absoluteUrl = `${window.location.origin}${GBY_LOGO_SRC}`;
+
+    try {
+      const response = await fetch(absoluteUrl, { cache: 'no-store' });
+
+      if (!response.ok) {
+        console.warn('Logo not found:', absoluteUrl);
+        return absoluteUrl;
+      }
+
+      const blob = await response.blob();
+
+      return await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || absoluteUrl);
+        reader.onerror = () => resolve(absoluteUrl);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.warn('Logo load error:', error);
+      return absoluteUrl;
+    }
+  }
+
+  function getSchemeTitle(cars) {
+    const first = cars?.[0];
+
+    if (!first) return 'Schema';
+
+    const make = String(first.car_make || '').trim();
+    const model = String(first.car_model || '').trim();
+    const count = Number(first.car_count || 0);
+
+    return `Schema ${[make, model].filter(Boolean).join(' ')}${count ? ` - ${count} vnt` : ''}`;
   }
 
   function formatDate(value) {
@@ -276,7 +354,12 @@ export async function initMasterDriver({ supabase, user, profile }) {
       const count = Number(row.querySelector('.ks-car-count')?.value || 0);
 
       if (make || model || count) {
-        rows.push({ make, model, count: count || 1, sort_order: index });
+        rows.push({
+          make,
+          model,
+          count: count || 1,
+          sort_order: index
+        });
       }
     });
 
@@ -312,13 +395,20 @@ export async function initMasterDriver({ supabase, user, profile }) {
           </div>
 
           <div class="h-32 border border-dashed border-slate-600 rounded-xl flex items-center justify-center overflow-hidden bg-slate-900 text-slate-400 text-sm mb-3">
-            ${previewUrl ? `<img src="${previewUrl}" class="w-full h-full object-cover" alt="">` : escapeHtml(tr('loading_schemes.photo', 'Nuotrauka'))}
+            ${previewUrl ? `<img src="${escapeHtml(previewUrl)}" class="w-full h-full object-cover" alt="">` : escapeHtml(tr('loading_schemes.photo', 'Nuotrauka'))}
           </div>
 
-          <label class="cursor-pointer flex items-center justify-center min-h-[40px] text-center bg-blue-600 hover:bg-blue-700 rounded-xl px-3 py-2 text-sm">
-            ${escapeHtml(tr('loading_schemes.choose_or_photo', 'Pasirinkti / fotografuoti'))}
-            <input type="file" accept="image/*" capture="environment" class="hidden ks-photo-input" data-category="${escapeHtml(category)}">
-          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer flex items-center justify-center min-h-[40px] text-center bg-blue-600 hover:bg-blue-700 rounded-xl px-3 py-2 text-sm">
+              ${escapeHtml(tr('loading_schemes.take_photo', 'Fotografuoti'))}
+              <input type="file" accept="image/*" capture="environment" class="hidden ks-photo-input" data-category="${escapeHtml(category)}">
+            </label>
+
+            <label class="cursor-pointer flex items-center justify-center min-h-[40px] text-center bg-slate-700 hover:bg-slate-600 rounded-xl px-3 py-2 text-sm">
+              ${escapeHtml(tr('loading_schemes.gallery', 'Galerija'))}
+              <input type="file" accept="image/*" class="hidden ks-photo-input" data-category="${escapeHtml(category)}">
+            </label>
+          </div>
         </div>
       `;
     });
@@ -332,14 +422,24 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const scheme = getSchemeBySourceTask(taskId);
     const schemeCars = scheme ? getSchemeCars(scheme.id) : [];
 
-    document.getElementById('ksLoadingPlace').value = scheme?.loading_place || '';
-    document.getElementById('ksDestination').value = scheme?.destination || '';
-    document.getElementById('ksCarrierType').value = scheme?.carrier_type || '';
-    document.getElementById('ksSchemeDescription').value = scheme?.scheme_description || task?.description || '';
-    document.getElementById('ksMasterComment').value = scheme?.master_driver_comment || '';
+    const loadingPlace = document.getElementById('ksLoadingPlace');
+    const destination = document.getElementById('ksDestination');
+    const carrierType = document.getElementById('ksCarrierType');
+    const schemeDescription = document.getElementById('ksSchemeDescription');
+    const masterComment = document.getElementById('ksMasterComment');
+
+    if (loadingPlace) loadingPlace.value = scheme?.loading_place || '';
+    if (destination) destination.value = scheme?.destination || '';
+    if (carrierType) carrierType.value = scheme?.carrier_type || '';
+    if (schemeDescription) schemeDescription.value = scheme?.scheme_description || task?.description || '';
+    if (masterComment) masterComment.value = scheme?.master_driver_comment || '';
 
     state.carRows = schemeCars.length
-      ? schemeCars.map(car => ({ make: car.car_make || '', model: car.car_model || '', count: car.car_count || 1 }))
+      ? schemeCars.map(car => ({
+          make: car.car_make || '',
+          model: car.car_model || '',
+          count: car.car_count || 1
+        }))
       : [{ make: '', model: '', count: 1 }];
 
     renderCarRows();
@@ -353,7 +453,9 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
     const activeTasks = getActiveSourceTasks().filter(task => {
       if (!query) return true;
-      return [task.title, task.description].some(value => String(value || '').toLowerCase().includes(query));
+      return [task.title, task.description].some(value =>
+        String(value || '').toLowerCase().includes(query)
+      );
     });
 
     if (!activeTasks.length) {
@@ -363,6 +465,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
     el.activeList.innerHTML = activeTasks.map(task => {
       const scheme = getSchemeBySourceTask(task.id);
+
       return `
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -370,10 +473,16 @@ export async function initMasterDriver({ supabase, user, profile }) {
               <div class="font-semibold">${escapeHtml(getTaskName(task))}</div>
               <div class="text-sm text-slate-400 mt-1">${escapeHtml(task.description || '')}</div>
             </div>
-            <button type="button" class="ks-select-task bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2 text-sm font-semibold" data-id="${task.id}">
+
+            <button
+              type="button"
+              class="ks-select-task bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2 text-sm font-semibold"
+              data-id="${task.id}"
+            >
               ${escapeHtml(tr('loading_schemes.fill', 'Pildyti'))}
             </button>
           </div>
+
           ${scheme?.instructor_comment ? `
             <div class="mt-3 bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm">
               <div class="text-slate-400 mb-1">${escapeHtml(tr('loading_schemes.instructor_comment', 'Instruktoriaus komentaras'))}:</div>
@@ -402,15 +511,29 @@ export async function initMasterDriver({ supabase, user, profile }) {
             <div class="font-semibold">${escapeHtml(scheme.loading_place || '-')} → ${escapeHtml(scheme.destination || '-')}</div>
             <div class="text-sm text-slate-400 mt-1">${escapeHtml(scheme.carrier_type || '-')} · ${formatDate(scheme.submitted_at)}</div>
           </div>
-          <span class="text-xs px-3 py-1 rounded-full ${statusClass(scheme.status)} w-fit">${statusLabel(scheme.status)}</span>
+
+          <span class="text-xs px-3 py-1 rounded-full ${statusClass(scheme.status)} w-fit">
+            ${statusLabel(scheme.status)}
+          </span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-4">
-          <button type="button" class="ks-open bg-slate-900 hover:bg-slate-700 border border-slate-600 rounded-xl p-2 text-sm" data-id="${scheme.id}">${escapeHtml(tr('loading_schemes.open', 'Atidaryti'))}</button>
+          <button type="button" class="ks-open bg-slate-900 hover:bg-slate-700 border border-slate-600 rounded-xl p-2 text-sm" data-id="${scheme.id}">
+            ${escapeHtml(tr('loading_schemes.open', 'Atidaryti'))}
+          </button>
+
           ${canReview ? `
-            <button type="button" class="ks-approve bg-green-600 hover:bg-green-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">${escapeHtml(tr('loading_schemes.approve', 'Patvirtinti'))}</button>
-            <button type="button" class="ks-change bg-yellow-600 hover:bg-yellow-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">${escapeHtml(tr('loading_schemes.comment', 'Komentaras'))}</button>
-            <button type="button" class="ks-reject bg-red-600 hover:bg-red-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">${escapeHtml(tr('loading_schemes.reject', 'Atmesti'))}</button>
+            <button type="button" class="ks-approve bg-green-600 hover:bg-green-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">
+              ${escapeHtml(tr('loading_schemes.approve', 'Patvirtinti'))}
+            </button>
+
+            <button type="button" class="ks-change bg-yellow-600 hover:bg-yellow-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">
+              ${escapeHtml(tr('loading_schemes.comment', 'Komentaras'))}
+            </button>
+
+            <button type="button" class="ks-reject bg-red-600 hover:bg-red-700 rounded-xl p-2 text-sm" data-id="${scheme.id}">
+              ${escapeHtml(tr('loading_schemes.reject', 'Atmesti'))}
+            </button>
           ` : ''}
         </div>
       </div>
@@ -446,17 +569,32 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
     el.approvedList.innerHTML = approved.map(scheme => {
       const cars = getSchemeCars(scheme.id);
+
       return `
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div>
               <div class="font-semibold">${escapeHtml(scheme.loading_place || '-')} → ${escapeHtml(scheme.destination || '-')}</div>
-              <div class="text-sm text-slate-400 mt-1">${escapeHtml(scheme.carrier_type || '-')} · ${escapeHtml(tr('loading_schemes.approved_at', 'Patvirtinta'))}: ${formatDate(scheme.approved_at)}</div>
+              <div class="text-sm text-slate-400 mt-1">
+                ${escapeHtml(scheme.carrier_type || '-')} · ${escapeHtml(tr('loading_schemes.approved_at', 'Patvirtinta'))}: ${formatDate(scheme.approved_at)}
+              </div>
             </div>
-            <button type="button" class="ks-open bg-slate-900 hover:bg-slate-700 border border-slate-600 rounded-xl px-4 py-2 text-sm" data-id="${scheme.id}">${escapeHtml(tr('loading_schemes.open', 'Atidaryti'))}</button>
+
+            <button
+              type="button"
+              class="ks-open bg-slate-900 hover:bg-slate-700 border border-slate-600 rounded-xl px-4 py-2 text-sm"
+              data-id="${scheme.id}"
+            >
+              ${escapeHtml(tr('loading_schemes.open', 'Atidaryti'))}
+            </button>
           </div>
+
           <div class="mt-3 flex flex-wrap gap-2">
-            ${cars.map(car => `<span class="text-xs bg-slate-900 border border-slate-700 rounded-full px-3 py-1">${escapeHtml(car.car_make)} ${escapeHtml(car.car_model || '')} · ${escapeHtml(car.car_count)} vnt.</span>`).join('')}
+            ${cars.map(car => `
+              <span class="text-xs bg-slate-900 border border-slate-700 rounded-full px-3 py-1">
+                ${escapeHtml(car.car_make)} ${escapeHtml(car.car_model || '')} · ${escapeHtml(car.car_count)} vnt.
+              </span>
+            `).join('')}
           </div>
         </div>
       `;
@@ -496,21 +634,41 @@ export async function initMasterDriver({ supabase, user, profile }) {
       return;
     }
 
-    state.locations = (data || []).sort((a, b) => locationLabel(a).localeCompare(locationLabel(b)));
+    state.locations = (data || []).sort((a, b) =>
+      locationLabel(a).localeCompare(locationLabel(b))
+    );
+  }
+
+  async function loadDrivers() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role, is_active, transport_mode')
+      .in('role', driverRolesForMode)
+      .eq('is_active', true)
+      .eq('transport_mode', transportMode)
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      console.error('Drivers load error:', error);
+      state.drivers = [];
+      return;
+    }
+
+    state.drivers = data || [];
   }
 
   async function loadData() {
     await loadModels();
     await loadLocations();
+    await loadDrivers();
 
     if (canManage) {
-      let query = supabase
+      const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
-        .select('id, title, description, status, driver_id, created_at, due_at, task_type')
+        .select('id, title, description, status, driver_id, created_at, due_at, task_type, transport_mode')
         .eq('task_type', 'loading_scheme')
+        .eq('transport_mode', transportMode)
         .order('created_at', { ascending: false });
-
-      const { data: tasks, error: tasksError } = await query;
 
       if (tasksError) {
         console.error('Loading scheme source tasks error:', tasksError);
@@ -524,6 +682,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const { data: schemes, error: schemesError } = await supabase
       .from('loading_scheme_tasks')
       .select('*')
+      .eq('transport_mode', transportMode)
       .order('created_at', { ascending: false });
 
     if (schemesError) {
@@ -549,12 +708,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
       .in('scheme_id', ids)
       .order('sort_order', { ascending: true });
 
-    if (carsError) {
-      console.error('Loading scheme cars error:', carsError);
-      state.cars = [];
-    } else {
-      state.cars = cars || [];
-    }
+    state.cars = carsError ? [] : (cars || []);
+    if (carsError) console.error('Loading scheme cars error:', carsError);
 
     const { data: photos, error: photosError } = await supabase
       .from('loading_scheme_photos')
@@ -562,12 +717,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
       .in('scheme_id', ids)
       .order('created_at', { ascending: true });
 
-    if (photosError) {
-      console.error('Loading scheme photos error:', photosError);
-      state.photos = [];
-    } else {
-      state.photos = photos || [];
-    }
+    state.photos = photosError ? [] : (photos || []);
+    if (photosError) console.error('Loading scheme photos error:', photosError);
 
     renderAll();
   }
@@ -583,7 +734,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
       return false;
     }
 
-    if (!text('ksCarrierType')) {
+    if (!isTruckMode && !text('ksCarrierType')) {
       alert(tr('loading_schemes.choose_carrier_type', 'Pasirinkite autovežio tipą'));
       return false;
     }
@@ -591,7 +742,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const cars = collectCarRows();
     const invalidCar = cars.find(row => !row.make || !row.count);
 
-    if (invalidCar) {
+    if (!isTruckMode && invalidCar) {
       alert(tr('loading_schemes.enter_car_make_count', 'Įveskite automobilio markę ir kiekį'));
       return false;
     }
@@ -665,6 +816,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
     try {
       const existing = getSelectedScheme();
+
       const payload = {
         source_task_id: state.selectedSourceTaskId || null,
         client: null,
@@ -674,6 +826,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
         scheme_description: text('ksSchemeDescription'),
         master_driver_comment: text('ksMasterComment'),
         status: 'waiting_approval',
+        transport_mode: transportMode,
         submitted_by: user.id,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -685,7 +838,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
         const { error } = await supabase
           .from('loading_scheme_tasks')
           .update(payload)
-          .eq('id', existing.id);
+          .eq('id', existing.id)
+          .eq('transport_mode', transportMode);
 
         if (error) throw error;
       } else {
@@ -717,11 +871,13 @@ export async function initMasterDriver({ supabase, user, profile }) {
         sort_order: index
       }));
 
-      const { error: carsError } = await supabase
-        .from('loading_scheme_cars')
-        .insert(carRows);
+      if (carRows.length) {
+        const { error: carsError } = await supabase
+          .from('loading_scheme_cars')
+          .insert(carRows);
 
-      if (carsError) throw carsError;
+        if (carsError) throw carsError;
+      }
 
       await uploadPhotos(schemeId);
 
@@ -748,7 +904,13 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
     if (el.sourceTask) el.sourceTask.value = '';
 
-    ['ksLoadingPlace', 'ksDestination', 'ksCarrierType', 'ksSchemeDescription', 'ksMasterComment'].forEach(id => {
+    [
+      'ksLoadingPlace',
+      'ksDestination',
+      'ksCarrierType',
+      'ksSchemeDescription',
+      'ksMasterComment'
+    ].forEach(id => {
       const input = document.getElementById(id);
       if (input) input.value = '';
     });
@@ -773,7 +935,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const { error } = await supabase
       .from('loading_scheme_tasks')
       .update(payload)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('transport_mode', transportMode);
 
     if (error) {
       console.error('Loading scheme status error:', error);
@@ -786,6 +949,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
         .from('loading_scheme_tasks')
         .select('source_task_id')
         .eq('id', id)
+        .eq('transport_mode', transportMode)
         .maybeSingle();
 
       if (schemeRow?.source_task_id) {
@@ -797,7 +961,8 @@ export async function initMasterDriver({ supabase, user, profile }) {
             approved_by: user.id,
             completion_type: 'loading_scheme'
           })
-          .eq('id', schemeRow.source_task_id);
+          .eq('id', schemeRow.source_task_id)
+          .eq('transport_mode', transportMode);
       }
     }
 
@@ -813,19 +978,567 @@ export async function initMasterDriver({ supabase, user, profile }) {
     const viewer = document.createElement('div');
     viewer.id = 'ksImageViewer';
     viewer.className = 'fixed inset-0 z-[10050] bg-black/90 flex items-center justify-center p-4';
+
     viewer.innerHTML = `
       <div class="relative max-w-6xl w-full max-h-[94vh] flex flex-col items-center">
-        <button type="button" class="ks-image-close fixed top-4 right-4 z-[10060] bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full w-12 h-12 text-2xl">×</button>
+        <button
+          type="button"
+          class="ks-image-close fixed top-4 right-4 z-[10060] bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full w-12 h-12 text-2xl"
+        >
+          ×
+        </button>
+
         <img src="${escapeHtml(url)}" class="max-w-full max-h-[86vh] object-contain rounded-xl" alt="">
-        ${title ? `<div class="mt-3 text-slate-300 text-sm">${escapeHtml(title)}</div>` : ''}<div class="mt-2 text-slate-500 text-xs">${escapeHtml(tx('loading_schemes.close_photo_hint', 'Uždaryti: X arba paspauskite tamsų foną'))}</div>
+
+        ${title ? `<div class="mt-3 text-slate-300 text-sm">${escapeHtml(title)}</div>` : ''}
+
+        <div class="mt-2 text-slate-500 text-xs">
+          ${escapeHtml(tx('loading_schemes.close_photo_hint', 'Uždaryti: X arba paspauskite tamsų foną'))}
+        </div>
       </div>
     `;
 
     document.body.appendChild(viewer);
 
     viewer.addEventListener('click', event => {
-      if (event.target === viewer || event.target.closest('.ks-image-close')) viewer.remove();
+      if (event.target === viewer || event.target.closest('.ks-image-close')) {
+        viewer.remove();
+      }
     });
+  }
+
+  function getSchemePdfHtml(scheme, cars, photos, logoSrc) {
+   return `
+  <div class="pdf-root">
+    <div class="pdf-header">
+      <h1 class="pdf-title">Schemos aprašymas</h1>
+      <img src="${escapeHtml(logoSrc)}" class="pdf-logo" alt="GBY">
+    </div>
+
+    <div class="pdf-report">
+      <div class="pdf-section">
+
+        <div class="pdf-section">
+          <div class="pdf-grid">
+            <div class="pdf-card">
+              <div class="pdf-label">${escapeHtml(tr('loading_schemes.loading_place', 'Pasikrovimas'))}</div>
+              <div class="pdf-value">${escapeHtml(scheme.loading_place || '-')}</div>
+            </div>
+
+            <div class="pdf-card">
+              <div class="pdf-label">${escapeHtml(tr('loading_schemes.unloading_place', 'Išsikrovimas'))}</div>
+              <div class="pdf-value">${escapeHtml(scheme.destination || '-')}</div>
+            </div>
+
+            <div class="pdf-card">
+              <div class="pdf-label">${escapeHtml(tr('loading_schemes.carrier_type', 'Autovežio tipas'))}</div>
+              <div class="pdf-value">${escapeHtml(scheme.carrier_type || '-')}</div>
+            </div>
+
+            <div class="pdf-card">
+              <div class="pdf-label">${escapeHtml(tr('loading_schemes.status', 'Statusas'))}</div>
+              <div class="pdf-value">${escapeHtml(statusLabel(scheme.status))}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pdf-card">
+          <div class="pdf-label">${escapeHtml(tr('loading_schemes.cars', 'Automobiliai'))}</div>
+          <div class="pdf-inner-card">
+            ${cars.map(car => `${escapeHtml(car.car_make)} ${escapeHtml(car.car_model || '')} · ${escapeHtml(car.car_count)} vnt.`).join('<br>') || escapeHtml(tr('loading_schemes.no_cars', 'Automobilių nėra'))}
+          </div>
+        </div>
+
+        <div class="pdf-card">
+          <div class="pdf-label">${escapeHtml(tr('loading_schemes.scheme_description', 'Schemos aprašymas'))}</div>
+          <div class="pdf-text">${escapeHtml(scheme.scheme_description || '-')}</div>
+        </div>
+
+        ${scheme.master_driver_comment ? `
+          <div class="pdf-card">
+            <div class="pdf-label">${escapeHtml(tr('loading_schemes.master_comment', 'Master driver komentaras'))}</div>
+            <div class="pdf-text">${escapeHtml(scheme.master_driver_comment)}</div>
+          </div>
+        ` : ''}
+
+        ${scheme.instructor_comment ? `
+          <div class="pdf-card">
+            <div class="pdf-label">${escapeHtml(tr('loading_schemes.instructor_comment', 'Instruktoriaus komentaras'))}</div>
+            <div class="pdf-text">${escapeHtml(scheme.instructor_comment)}</div>
+          </div>
+        ` : ''}
+
+        <div class="pdf-photo-title">${escapeHtml(tr('loading_schemes.photos', 'Nuotraukos'))}</div>
+
+        <div class="pdf-photo-grid">
+          ${photos.map(photo => {
+            const url = getPhotoUrl(photo.file_path);
+            const label = photoLabel(photo.category);
+
+            return `
+              <div class="pdf-photo-card">
+                <img src="${escapeHtml(url)}" alt="">
+                <div class="pdf-photo-caption">${escapeHtml(label)}</div>
+              </div>
+            `;
+          }).join('') || `<div class="pdf-muted">${escapeHtml(tr('loading_schemes.no_photos', 'Nuotraukų nėra'))}</div>`}
+        </div>
+       </div>
+  </div>
+</div>
+  `;
+}
+
+  async function printSchemePdf(schemeId) {
+    const scheme = state.schemes.find(item => String(item.id) === String(schemeId));
+    if (!scheme) return;
+
+    const cars = getSchemeCars(scheme.id);
+    const photos = getSchemePhotos(scheme.id);
+    const logoSrc = await getLogoDataUrl();
+    const title = getSchemeTitle(cars);
+    const html = getSchemePdfHtml(scheme, cars, photos, logoSrc);
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+
+    if (!printWindow) {
+      alert('Naršyklė užblokavo PDF langą. Leiskite popup langus šiam puslapiui.');
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(title)}</title>
+
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 4mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #ffffff;
+              font-family: Arial, sans-serif;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .pdf-page {
+              background: #ffffff;
+              color: #111827;
+              width: 202mm;
+              height: 289mm;
+              padding: 0px;
+              overflow: hidden;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+
+            .pdf-content {
+              width: 190mm;
+              max-width: 190mm;
+              transform: none;
+              transform-origin: top center;
+            }
+
+            .pdf-root {
+              background: transparent;
+              color: #111827;
+              font-size: 13px;
+              line-height: 1.25;
+            }
+.pdf-report {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 0;
+}
+            .pdf-header {
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 16px;
+              margin-bottom: 8px;
+              color: #111827;
+            }
+
+            .pdf-title {
+              font-size: 18px;
+              line-height: 1.2;
+              font-weight: 700;
+              margin: 0;
+              color: #111827;
+            }
+
+            .pdf-logo {
+              width: 120px;
+              height: auto;
+              max-height: 48px;
+              display: block;
+              object-fit: contain;
+              background: #ffffff;
+              border-radius: 8px;
+              padding: 4px 8px;
+            }
+
+            .pdf-section {
+              margin-bottom: 12px;
+            }
+
+            .pdf-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 12px;
+            }
+
+            .pdf-card {
+              background: #1e293b;
+              border: 1px solid #334155;
+              border-radius: 10px;
+              padding: 6px;
+              margin-bottom: 5px;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .pdf-inner-card {
+              background: #0f172a;
+              border: 1px solid #334155;
+              border-radius: 10px;
+              padding: 11px;
+              font-size: 14px;
+              line-height: 1.3;
+            }
+
+            .pdf-label {
+              color: #93c5fd;
+              font-size: 12px;
+              line-height: 1.2;
+              margin-bottom: 4px;
+            }
+
+            .pdf-value {
+              color: #ffffff;
+              font-size: 13px;
+              line-height: 1.25;
+              font-weight: 700;
+            }
+
+            .pdf-text {
+              color: #ffffff;
+              font-size: 14px;
+              line-height: 1.35;
+              white-space: pre-line;
+            }
+
+            .pdf-photo-title {
+              color: #bfdbfe;
+              font-size: 13px;
+              line-height: 1.2;
+              margin-bottom: 8px;
+            }
+
+            .pdf-photo-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 6px;
+            }
+
+            .pdf-photo-card {
+              background: #1e293b;
+              border: 1px solid #334155;
+              border-radius: 12px;
+              overflow: hidden;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .pdf-photo-card img {
+              width: 100%;
+              height: 190px;
+              object-fit: cover;
+              display: block;
+            }
+
+            .pdf-photo-caption {
+              color: #bfdbfe;
+              font-size: 11px;
+              line-height: 1.2;
+              padding: 8px;
+            }
+
+            .pdf-muted {
+              color: #94a3b8;
+              font-size: 13px;
+            }
+
+            @media print {
+              html,
+              body {
+                width: 210mm;
+                height: 297mm;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="pdf-page">
+            <div class="pdf-content" id="pdfContent">
+              ${html}
+            </div>
+          </div>
+
+          <script>
+            function waitForImages() {
+              const images = Array.from(document.images);
+
+              if (!images.length) return Promise.resolve();
+
+              return Promise.all(images.map(img => {
+                if (img.complete) return Promise.resolve();
+
+                return new Promise(resolve => {
+                  img.addEventListener('load', resolve, { once: true });
+                  img.addEventListener('error', resolve, { once: true });
+                });
+              }));
+            }
+
+            function fitToOnePage() {
+              const page = document.querySelector('.pdf-page');
+              const content = document.getElementById('pdfContent');
+              if (!page || !content) return;
+              content.style.zoom = '1';
+              content.style.transform = 'none';
+              const pageRect = page.getBoundingClientRect();
+              const contentWidth = content.scrollWidth;
+              const contentHeight = content.scrollHeight;
+              const scale = Math.min(
+                1,
+                (pageRect.width - 12) / contentWidth,
+                (pageRect.height - 12) / contentHeight
+              );
+              content.style.zoom = String(scale);
+            }
+
+            window.addEventListener('load', async () => {
+              await waitForImages();
+              fitToOnePage();
+              setTimeout(() => window.print(), 300);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  }
+
+  function openAssignDriverModal(schemeId) {
+    const scheme = state.schemes.find(item => String(item.id) === String(schemeId));
+    if (!scheme) return;
+
+    const cars = getSchemeCars(scheme.id);
+    const title = getSchemeTitle(cars);
+
+    document.getElementById('assignSchemeModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'assignSchemeModal';
+    modal.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 px-4';
+
+    modal.innerHTML = `
+      <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 text-white shadow-2xl">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h3 class="text-lg font-semibold">Skirti schemą vairuotojui</h3>
+          <button type="button" class="assign-close bg-slate-800 hover:bg-slate-700 rounded-xl px-3 py-2">×</button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 mb-4">
+          <div class="text-slate-400 text-sm">Užduotis</div>
+          <div class="font-semibold">${escapeHtml(title)}</div>
+        </div>
+
+        <label class="block text-sm text-slate-300 mb-1">Vairuotojas</label>
+
+<input
+  id="assignSchemeDriverSearch"
+  type="search"
+  autocomplete="off"
+  class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3"
+  placeholder="Rašykite vairuotojo vardą..."
+>
+
+<input id="assignSchemeDriver" type="hidden" value="">
+
+<div
+  id="assignSchemeDriverResults"
+  class="mt-2 max-h-56 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl hidden"
+></div>
+
+<div
+  id="assignSchemeDriverSelected"
+  class="mt-2 text-sm text-slate-400 hidden"
+></div>
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button type="button" class="assign-close bg-slate-700 hover:bg-slate-600 rounded-xl px-4 py-2">
+            Atšaukti
+          </button>
+
+          <button type="button" class="assign-save bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2 font-semibold">
+            Sukurti užduotį
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    const driverSearch = modal.querySelector('#assignSchemeDriverSearch');
+const driverHidden = modal.querySelector('#assignSchemeDriver');
+const driverResults = modal.querySelector('#assignSchemeDriverResults');
+const driverSelected = modal.querySelector('#assignSchemeDriverSelected');
+
+function driverDisplayName(driver) {
+  return driver.full_name || driver.email || driver.id;
+}
+
+function renderDriverResults(query = '') {
+  if (!driverResults) return;
+
+  const q = String(query || '').toLowerCase().trim();
+
+  const matches = state.drivers
+    .filter(driver => {
+      const haystack = [
+        driver.full_name,
+        driver.email,
+        driver.role
+      ].join(' ').toLowerCase();
+
+      return !q || haystack.includes(q);
+    })
+    .slice(0, 12);
+
+  if (!matches.length) {
+    driverResults.innerHTML = `
+      <div class="p-3 text-sm text-slate-400">
+        Vairuotojų nerasta
+      </div>
+    `;
+    driverResults.classList.remove('hidden');
+    return;
+  }
+
+  driverResults.innerHTML = matches.map(driver => `
+    <button
+      type="button"
+      class="assign-driver-result w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-b-0"
+      data-driver-id="${escapeHtml(driver.id)}"
+    >
+      <div class="font-semibold">${escapeHtml(driverDisplayName(driver))}</div>
+      ${driver.email ? `<div class="text-xs text-slate-400">${escapeHtml(driver.email)}</div>` : ''}
+    </button>
+  `).join('');
+
+  driverResults.classList.remove('hidden');
+}
+
+driverSearch?.addEventListener('input', () => {
+  if (driverHidden) driverHidden.value = '';
+  if (driverSelected) {
+    driverSelected.textContent = '';
+    driverSelected.classList.add('hidden');
+  }
+
+  renderDriverResults(driverSearch.value);
+});
+
+driverSearch?.addEventListener('focus', () => {
+  renderDriverResults(driverSearch.value);
+});
+
+driverResults?.addEventListener('click', event => {
+  const btn = event.target.closest('.assign-driver-result');
+  if (!btn) return;
+
+  const driverId = btn.dataset.driverId;
+  const driver = state.drivers.find(item => String(item.id) === String(driverId));
+
+  if (!driver) return;
+
+  if (driverHidden) driverHidden.value = driver.id;
+  if (driverSearch) driverSearch.value = driverDisplayName(driver);
+
+  if (driverSelected) {
+    driverSelected.textContent = `Pasirinkta: ${driverDisplayName(driver)}`;
+    driverSelected.classList.remove('hidden');
+  }
+
+  driverResults.classList.add('hidden');
+});
+    modal.addEventListener('click', async event => {
+      if (event.target === modal || event.target.closest('.assign-close')) {
+        modal.remove();
+        return;
+      }
+
+      if (event.target.closest('.assign-save')) {
+        const driverId = document.getElementById('assignSchemeDriver')?.value || '';
+
+        if (!driverId) {
+          alert('Pasirinkite vairuotoją.');
+          return;
+        }
+
+        await createSchemeViewTask(scheme, driverId, title);
+        modal.remove();
+      }
+    });
+  }
+
+  async function createSchemeViewTask(scheme, driverId, title) {
+    const { error } = await supabase
+      .from('tasks')
+      .insert({
+        title,
+        description: 'Peržiūrėti patvirtintą krovimo schemą.',
+        status: 'pending',
+        driver_id: driverId,
+        instruction_id: null,
+        group_id: null,
+        task_type: 'loading_scheme',
+        transport_mode: scheme.transport_mode || transportMode,
+        related_table: 'loading_scheme_tasks',
+        related_id: scheme.id,
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+        approved_at: null,
+        approved_by: null,
+        completion_type: null
+      });
+
+    if (error) {
+      console.error('Scheme view task create error:', error);
+      alert(error.message || 'Nepavyko sukurti užduoties vairuotojui.');
+      return;
+    }
+
+    alert('Užduotis vairuotojui sukurta.');
   }
 
   function openScheme(id) {
@@ -857,7 +1570,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
         </div>
 
         ${scheme.master_driver_comment ? `<div class="bg-slate-800 rounded-xl p-3 border border-slate-700"><div class="text-slate-400 text-sm mb-1">${escapeHtml(tr('loading_schemes.master_comment', 'Master driver komentaras'))}</div><div class="whitespace-pre-line">${escapeHtml(scheme.master_driver_comment)}</div></div>` : ''}
-        ${scheme.instructor_comment ? `<div class="bg-slate-800 rounded-xl p-3 border border-slate-700"><div class="text-slate-400 text-sm mb-1">Instruktoriaus komentaras</div><div class="whitespace-pre-line">${escapeHtml(scheme.instructor_comment)}</div></div>` : ''}
+        ${scheme.instructor_comment ? `<div class="bg-slate-800 rounded-xl p-3 border border-slate-700"><div class="text-slate-400 text-sm mb-1">${escapeHtml(tr('loading_schemes.instructor_comment', 'Instruktoriaus komentaras'))}</div><div class="whitespace-pre-line">${escapeHtml(scheme.instructor_comment)}</div></div>` : ''}
 
         <div>
           <div class="text-slate-400 text-sm mb-2">${escapeHtml(tr('loading_schemes.photos', 'Nuotraukos'))}</div>
@@ -865,10 +1578,24 @@ export async function initMasterDriver({ supabase, user, profile }) {
             ${photos.map(photo => {
               const url = getPhotoUrl(photo.file_path);
               const label = photoLabel(photo.category);
-              return `<button type="button" class="ks-photo-view block text-left bg-slate-800 border border-slate-700 rounded-xl overflow-hidden" data-url="${escapeHtml(url)}" data-title="${escapeHtml(label)}"><img src="${url}" class="w-full h-40 object-cover" alt=""><div class="p-2 text-xs text-slate-400">${escapeHtml(label)}</div></button>`;
+              return `<button type="button" class="ks-photo-view block text-left bg-slate-800 border border-slate-700 rounded-xl overflow-hidden" data-url="${escapeHtml(url)}" data-title="${escapeHtml(label)}"><img src="${escapeHtml(url)}" class="w-full h-40 object-cover" alt=""><div class="p-2 text-xs text-slate-400">${escapeHtml(label)}</div></button>`;
             }).join('') || `<div class="text-slate-500">${escapeHtml(tr('loading_schemes.no_photos', 'Nuotraukų nėra'))}</div>`}
           </div>
         </div>
+
+        ${scheme.status === 'approved' && canSchemeActions ? `
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+    <button type="button" class="ks-pdf bg-blue-600 hover:bg-blue-700 rounded-xl p-3 text-sm font-semibold" data-id="${scheme.id}">
+  ${escapeHtml(tr('loading_schemes.download_pdf', 'Atsisiųsti PDF'))}
+</button>
+
+${canAssignScheme ? `
+  <button type="button" class="ks-assign bg-purple-600 hover:bg-purple-700 rounded-xl p-3 text-sm font-semibold" data-id="${scheme.id}">
+    ${escapeHtml(tr('loading_schemes.assign_driver', 'Skirti vairuotojui'))}
+  </button>
+` : ''}
+  </div>
+` : ''}
 
         ${canReview && ['waiting_approval', 'needs_changes', 'rejected'].includes(scheme.status) ? `
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
@@ -950,21 +1677,6 @@ export async function initMasterDriver({ supabase, user, profile }) {
   el.submitBtn?.addEventListener('click', saveAndSubmit);
 
   function isFormDirty() {
-    const cars = collectCarRows();
-
-    return Boolean(
-      text('ksLoadingPlace') ||
-      text('ksDestination') ||
-      text('ksCarrierType') ||
-      text('ksSchemeDescription') ||
-      text('ksMasterComment') ||
-      state.files.size ||
-      cars.some(row => row.make || row.model || Number(row.count || 0) !== 1)
-    );
-  }
-
-
-  function isFormDirty() {
     collectCarRows();
     return Boolean(
       text('ksLoadingPlace') ||
@@ -980,7 +1692,11 @@ export async function initMasterDriver({ supabase, user, profile }) {
   function confirmDiscardIfDirty(nextTaskId) {
     if (!isFormDirty()) return true;
     if (String(state.selectedSourceTaskId || '') === String(nextTaskId || '')) return true;
-    return confirm(tx('loading_schemes.discard_confirm', 'Jau pradėjote pildyti schemą. Ar tikrai nutraukti pildymą ir atidaryti kitą užduotį?'));
+
+    return confirm(tx(
+      'loading_schemes.discard_confirm',
+      'Jau pradėjote pildyti schemą. Ar tikrai nutraukti pildymą ir atidaryti kitą užduotį?'
+    ));
   }
 
   el.activeList?.addEventListener('click', event => {
@@ -993,9 +1709,15 @@ export async function initMasterDriver({ supabase, user, profile }) {
     }
 
     if (!confirmDiscardIfDirty(btn.dataset.id)) return;
+
     if (el.sourceTask) el.sourceTask.value = btn.dataset.id;
+
     fillFormFromTask(btn.dataset.id);
-    document.getElementById('ksSourceTask')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    document.getElementById('ksSourceTask')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
   });
 
   el.waitingList?.addEventListener('click', async event => {
@@ -1039,12 +1761,24 @@ export async function initMasterDriver({ supabase, user, profile }) {
 
   el.modalContent?.addEventListener('click', async event => {
     const photoBtn = event.target.closest('.ks-photo-view');
+    const pdfBtn = event.target.closest('.ks-pdf');
+    const assignBtn = event.target.closest('.ks-assign');
     const approveBtn = event.target.closest('.ks-modal-approve');
     const changeBtn = event.target.closest('.ks-modal-change');
     const rejectBtn = event.target.closest('.ks-modal-reject');
 
     if (photoBtn) {
       openImageViewer(photoBtn.dataset.url, photoBtn.dataset.title);
+      return;
+    }
+
+    if (pdfBtn) {
+      await printSchemePdf(pdfBtn.dataset.id);
+      return;
+    }
+
+    if (assignBtn) {
+      openAssignDriverModal(assignBtn.dataset.id);
       return;
     }
 
