@@ -9,6 +9,17 @@ export async function initInstrukcijos({ supabase, user, profile }) {
 
   const currentLang = localStorage.getItem('lang') || profile?.lang || 'lt';
   const role = profile?.role || 'driver';
+  const transportMode =
+    profile?.transport_mode ||
+    profile?.app_transport_mode ||
+    profile?.effective_transport_mode ||
+    'car_transporter';
+
+  const isEditorRole = [
+    'admin',
+    'instructor',
+    'truck_instructor',
+   ].includes(role);
 
   let currentTab = 'general';
   let instructions = [];
@@ -22,6 +33,15 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       .replaceAll("'", '&#39;');
   }
 
+  function getTranslation(key, fallback) {
+    const value = t(key);
+
+    if (!value) return fallback;
+    if (value === key) return fallback;
+
+    return value;
+  }
+
   function normalizeInstruction(row) {
     return {
       id: row.id,
@@ -29,6 +49,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       description: row.description || '',
       type: row.type || 'general',
       lang: row.lang || 'lt',
+      transport_mode: row.transport_mode || 'car_transporter',
       video: row.video_url || '',
       test: row.test_url || '',
       pdf: row.pdf_url || '',
@@ -41,19 +62,31 @@ export async function initInstrukcijos({ supabase, user, profile }) {
   }
 
   async function loadInstructions() {
-    const { data, error } = await supabase
+    let query = supabase
       .from('instructions')
       .select('*')
+      .eq('transport_mode', transportMode)
       .order('created_at', { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Instructions load error:', error);
-      container.innerHTML = `<div class="text-red-400">Nepavyko užkrauti instrukcijų.</div>`;
+      container.innerHTML = `
+        <div class="text-red-400">
+          ${getTranslation('common.no_instructions', 'Nepavyko užkrauti instrukcijų.')}
+        </div>
+      `;
       instructions = [];
       return;
     }
 
     instructions = (data || []).map(normalizeInstruction);
+
+    console.log('✅ Instrukcijos užkrautos:', {
+      transportMode,
+      count: instructions.length
+    });
   }
 
   function isGoogleDriveUrl(value) {
@@ -112,7 +145,12 @@ export async function initInstrukcijos({ supabase, user, profile }) {
   }
 
   function langInstructions() {
-    return instructions.filter(item => (item.lang || 'lt') === currentLang);
+    return instructions.filter(item => {
+      const itemLang = item.lang || 'lt';
+      const itemMode = item.transport_mode || 'car_transporter';
+
+      return itemLang === currentLang && itemMode === transportMode;
+    });
   }
 
   function fillSearchSuggestions() {
@@ -135,26 +173,23 @@ export async function initInstrukcijos({ supabase, user, profile }) {
       return matchesText && item.type === currentTab;
     });
   }
-  function getTranslation(key, fallback) {
-  const value = t(key);
 
-  if (!value) return fallback;
-  if (value === key) return fallback;
-
-  return value;
-}
   function renderList() {
     const list = getVisibleInstructions();
 
     if (!list.length) {
-      container.innerHTML = `<div class="text-slate-400">${t('common.no_instructions')}</div>`;
+      container.innerHTML = `
+        <div class="text-slate-400">
+          ${getTranslation('common.no_instructions', 'Nėra instrukcijų')}
+        </div>
+      `;
       return;
     }
 
     container.innerHTML = list.map(item => `
       <div
         class="topic instruction-card bg-slate-800 p-4 rounded-xl border border-slate-700 overflow-hidden"
-        data-id="${item.id}"
+        data-id="${escapeHtml(item.id)}"
       >
         <div class="flex flex-col gap-3">
           <div class="min-w-0">
@@ -163,35 +198,36 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           </div>
 
           <div class="instruction-actions grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
-            ${role === 'instructor' || role === 'admin' ? `
+            ${isEditorRole ? `
               <button class="edit-btn bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg text-xs">
                 ✏️
               </button>
             ` : ''}
 
-            ${role === 'instructor' || role === 'admin' ? `
+            ${isEditorRole ? `
               <button class="delete-btn bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg text-xs">
                 🗑
               </button>
             ` : ''}
 
-              <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-semibold">
-            ${getTranslation('instructions.open_instruction', getTranslation('common.open', 'Atidaryti'))}
-</button>
-            </div>
+            <button class="open-topic-btn bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-semibold">
+              ${getTranslation('instr.open_instruction', getTranslation('common.open', 'Atidaryti'))}
+            </button>
           </div>
         </div>
 
         <div
           class="topic-content hidden mt-4 bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-700 overflow-hidden"
-          id="content-${item.id}"
+          id="content-${escapeHtml(item.id)}"
         ></div>
       </div>
     `).join('');
   }
 
   function renderInstructionContent(instr) {
-    if (!instr) return t('common.no_instructions');
+    if (!instr) {
+      return getTranslation('common.no_instructions', 'Nėra instrukcijų');
+    }
 
     const rawVideoUrl = String(instr.video || '').trim();
     const embedUrl = getEmbedUrl(rawVideoUrl);
@@ -241,7 +277,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          ${getTranslation('instructions.video', getTranslation('common.video', '▶ Video'))}
+          ${getTranslation('instr.video', '▶ Video')}
         </a>
       `;
     }
@@ -254,7 +290,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          ${getTranslation('instructions.go_to_test', getTranslation('common.go_to_test', 'Eiti į testą'))}
+          ${getTranslation('common.go_to_test', 'Pereiti į testą')}
         </a>
       `;
     }
@@ -267,7 +303,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-slate-700 hover:bg-slate-600 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          ${t('common.cheat_sheet')}
+          ${getTranslation('common.cheat_sheet', 'Cheat sheet')}
         </a>
       `;
     }
@@ -280,7 +316,7 @@ export async function initInstrukcijos({ supabase, user, profile }) {
           rel="noopener noreferrer"
           class="block bg-blue-600 hover:bg-blue-700 px-4 py-3 text-center rounded-xl font-semibold break-words"
         >
-          Atidaryti nuorodą
+          ${getTranslation('common.open_link', 'Atidaryti nuorodą')}
         </a>
       `;
     }
@@ -300,39 +336,69 @@ export async function initInstrukcijos({ supabase, user, profile }) {
     if (instr.avoid) {
       html += `
         <div class="mt-3 break-words">
-          <b>${t('common.avoid')}</b><br>
+          <b>${getTranslation('common.avoid', 'Kaip išvengti:')}</b><br>
           ${escapeHtml(instr.avoid)}
         </div>
       `;
     }
 
     if (!html.trim()) {
-      html = `<div class="text-slate-400">${t('common.no_instructions')}</div>`;
+      html = `
+        <div class="text-slate-400">
+          ${getTranslation('common.no_instructions', 'Nėra instrukcijų')}
+        </div>
+      `;
     }
 
     return html;
   }
 
-  async function deleteInstruction(id) {
-    const confirmed = confirm('Ar tikrai ištrinti instrukciją?');
-
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from('instructions')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Instruction delete error:', error);
-      alert('Nepavyko ištrinti instrukcijos');
-      return;
-    }
-
-    await loadInstructions();
-    fillSearchSuggestions();
-    renderList();
+ async function deleteInstruction(id) {
+  if (!isEditorRole) {
+    alert(
+      currentLang === 'ru'
+        ? 'У вас нет прав удалять инструкции.'
+        : currentLang === 'en'
+          ? 'You do not have permission to delete instructions.'
+          : 'Neturite teisės trinti instrukcijų.'
+    );
+    return;
   }
+
+  const confirmed = confirm(
+    currentLang === 'ru'
+      ? 'Вы уверены, что хотите удалить инструкцию?'
+      : currentLang === 'en'
+        ? 'Are you sure you want to delete this instruction?'
+        : 'Ar tikrai ištrinti instrukciją?'
+  );
+
+  if (!confirmed) return;
+
+  const { error } = await supabase
+    .from('instructions')
+    .delete()
+    .eq('id', id)
+    .eq('transport_mode', transportMode);
+
+  if (error) {
+    console.error('Instruction delete error:', error);
+
+    alert(
+      currentLang === 'ru'
+        ? 'Не удалось удалить инструкцию'
+        : currentLang === 'en'
+          ? 'Failed to delete instruction'
+          : 'Nepavyko ištrinti instrukcijos'
+    );
+
+    return;
+  }
+
+  await loadInstructions();
+  fillSearchSuggestions();
+  renderList();
+}
 
   await loadInstructions();
   fillSearchSuggestions();
@@ -351,17 +417,41 @@ export async function initInstrukcijos({ supabase, user, profile }) {
     if (!instr) return;
 
     if (e.target.closest('.delete-btn')) {
-      e.stopPropagation();
-      await deleteInstruction(id);
-      return;
-    }
+  e.stopPropagation();
 
-    if (e.target.closest('.edit-btn')) {
-      e.stopPropagation();
-      localStorage.setItem('editInstructionId', id);
-      window.navigateTo('nustatymai');
-      return;
-    }
+  if (!isEditorRole) {
+    alert(
+      currentLang === 'ru'
+        ? 'У вас нет прав удалять инструкции.'
+        : currentLang === 'en'
+          ? 'You do not have permission to delete instructions.'
+          : 'Neturite teisės trinti instrukcijų.'
+    );
+    return;
+  }
+
+  await deleteInstruction(id);
+  return;
+}
+
+if (e.target.closest('.edit-btn')) {
+  e.stopPropagation();
+
+  if (!isEditorRole) {
+    alert(
+      currentLang === 'ru'
+        ? 'У вас нет прав редактировать инструкции.'
+        : currentLang === 'en'
+          ? 'You do not have permission to edit instructions.'
+          : 'Neturite teisės redaguoti instrukcijų.'
+    );
+    return;
+  }
+
+  localStorage.setItem('editInstructionId', id);
+  window.navigateTo('nustatymai');
+  return;
+}
 
     if (!e.target.closest('.open-topic-btn')) {
       return;

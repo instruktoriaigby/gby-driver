@@ -53,7 +53,11 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     'car_transporter';
 
   const isTruckMode = transportMode === 'truck';
-  const isDriverRole = role === 'driver' || role === 'truck_driver';
+  const isDriverRole =
+    role === 'driver' ||
+    role === 'truck_driver' ||
+    role === 'master_driver' ||
+    role === 'truck_master_driver'; 
 
   const driverRolesForMode = isTruckMode
     ? ['truck_driver', 'truck_master_driver']

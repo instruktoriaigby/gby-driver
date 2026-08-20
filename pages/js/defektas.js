@@ -10,6 +10,70 @@ export async function initDefektas({ supabase, user, profile }) {
   const LOCATIONS_CACHE_KEY = 'gby_locations_cache_v1';
   const LOCATIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 
+  user = user || null;
+  profile = profile || null;
+
+  async function loadLoggedInUserAndProfile() {
+    try {
+      if (!user?.id) {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error('❌ Auth user klaida:', authError);
+        }
+
+        if (authData?.user) {
+          user = authData.user;
+        }
+      }
+
+      if (!user?.id) {
+        console.error('❌ Nepavyko nustatyti prisijungusio vartotojo.');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          name,
+          driver_name,
+          role,
+          lang,
+          transport_mode,
+          effective_transport_mode,
+          app_transport_mode,
+          is_active
+        `)
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Profile load error:', error);
+        return;
+      }
+
+      if (data) {
+        profile = {
+          ...profile,
+          ...data
+        };
+      }
+
+      console.log('✅ Defektų formos vartotojas:', {
+        user_id: user?.id,
+        email: user?.email,
+        profile
+      });
+    } catch (error) {
+      console.error('❌ Nepavyko užkrauti vartotojo profilio:', error);
+    }
+  }
+
+  await loadLoggedInUserAndProfile();
+
   const role = profile?.role || 'driver';
 
   const transportMode =
@@ -473,15 +537,18 @@ export async function initDefektas({ supabase, user, profile }) {
       form.querySelector('[name="driverName"]') ||
       form.querySelector('[name="driver_name"]') ||
       document.getElementById('driver') ||
-      document.getElementById('driverName')
+      document.getElementById('driverName') ||
+      document.getElementById('driver_name')
     );
   }
 
   function getProfileDriverName() {
     return String(
       profile?.full_name ||
+      profile?.driver_name ||
       profile?.name ||
       user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
       user?.email ||
       ''
     ).trim();
@@ -531,8 +598,11 @@ export async function initDefektas({ supabase, user, profile }) {
 
     if (!isDriver) {
       const driverInput = getDriverInput();
-
       return String(driverInput?.value || '').trim();
+    }
+
+    if (profileName) {
+      return profileName;
     }
 
     if (email && driversRows.length) {
@@ -548,14 +618,17 @@ export async function initDefektas({ supabase, user, profile }) {
       }
     }
 
-    return profileName;
+    return email || '';
   }
 
   function lockDriverFieldForLoggedInDriver() {
     if (!isDriver) return;
 
     const driverInput = getDriverInput();
-    if (!driverInput) return;
+    if (!driverInput) {
+      console.error('❌ Nerastas vairuotojo laukas formoje.');
+      return;
+    }
 
     const driverName = getCurrentDriverName();
 
@@ -578,6 +651,8 @@ export async function initDefektas({ supabase, user, profile }) {
       note.textContent = tr('driver_auto_note', 'Vairuotojas nustatytas automatiškai pagal prisijungimą.');
       wrapper.appendChild(note);
     }
+
+    console.log('✅ Vairuotojas nustatytas automatiškai:', driverName);
   }
 
   function getDefectLocationValue(formData) {
@@ -1027,7 +1102,9 @@ export async function initDefektas({ supabase, user, profile }) {
   }
 
   applyTransportModeVisibility();
+  lockDriverFieldForLoggedInDriver();
   await loadReferenceLists();
+  lockDriverFieldForLoggedInDriver();
 
   form.addEventListener('input', clearInvalidMarks);
 
