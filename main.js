@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
 
     'master-driver': {
-      car_transporter: ['admin', 'master_driver', 'instructor'],
+      car_transporter: ['admin', 'driver', 'master_driver', 'instructor'],
       truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
     },
 
