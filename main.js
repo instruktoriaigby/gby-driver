@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
 
     nustatymai: {
-      car_transporter: ['admin', 'master_driver', 'instructor'],
-      truck: ['admin', 'truck_master_driver', 'truck_instructor']
+      car_transporter: ['admin', 'instructor'],
+      truck: ['admin', 'truck_instructor']
     },
 
     login: {
