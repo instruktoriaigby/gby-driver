@@ -218,65 +218,69 @@
 
         <div class="mobile-nav-scroll md:block md:space-y-2">
 
-        <button
-          type="button"
-          data-page="dashboard"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
-        >
-          <span class="label" data-i18n="nav.dashboard">Pagrindinis</span>
-        </button>
+          <button
+            type="button"
+            data-page="dashboard"
+            data-roles="admin,driver,master_driver,instructor,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+          >
+            <span class="label" data-i18n="nav.dashboard">Pagrindinis</span>
+          </button>
 
-        <button
-          type="button"
-          data-page="defektas"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.defects">Defektai</span>
-        </button>
+          <button
+            type="button"
+            data-page="defektas"
+            data-roles="admin,driver,master_driver,instructor,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.defects">Defektai</span>
+          </button>
 
-        <button
-          type="button"
-          data-page="vilkiko-priemimas"
-          data-roles="admin,instructor,master_driver"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.truck_acceptance">Vilkiko priėmimas</span>
-        </button>
+          <button
+            type="button"
+            data-page="vilkiko-priemimas"
+            data-roles="admin,instructor,master_driver,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.truck_acceptance">Vilkiko priėmimas</span>
+          </button>
 
-        <button
-          type="button"
-          data-page="master-driver"
-          data-roles="admin,instructor,master_driver,driver"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.loading_schemes">Krovimo schemos</span>
-        </button>
+          <button
+            type="button"
+            data-page="master-driver"
+            data-roles="admin,instructor,master_driver,driver,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.loading_schemes">Krovimo schemos</span>
+          </button>
 
-        <button
-          type="button"
-          data-page="instrukcijos"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.instructions">Instrukcijos</span>
-        </button>
+          <button
+            type="button"
+            data-page="instrukcijos"
+            data-roles="admin,driver,master_driver,instructor,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.instructions">Instrukcijos</span>
+          </button>
 
-        <button
-          type="button"
-          data-page="uzduotys"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.tasks">Užduotys</span>
-        </button>
+          <button
+            type="button"
+            data-page="uzduotys"
+            data-roles="admin,driver,master_driver,instructor,truck_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.tasks">Užduotys</span>
+          </button>
 
-        <button
-          type="button"
-          id="settingsNavBtn"
-          data-page="nustatymai"
-          data-roles="admin,instructor,master_driver"
-          class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
-        >
-          <span class="label" data-i18n="nav.settings">Nustatymai</span>
-        </button>
+          <button
+            type="button"
+            id="settingsNavBtn"
+            data-page="nustatymai"
+            data-roles="admin,instructor,master_driver,truck_master_driver,truck_instructor"
+            class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800"
+          >
+            <span class="label" data-i18n="nav.settings">Nustatymai</span>
+          </button>
 
         </div>
 
