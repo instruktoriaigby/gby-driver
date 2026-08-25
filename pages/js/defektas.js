@@ -39,12 +39,9 @@ export async function initDefektas({ supabase, user, profile }) {
           email,
           full_name,
           name,
-          driver_name,
           role,
           lang,
           transport_mode,
-          effective_transport_mode,
-          app_transport_mode,
           is_active
         `)
         .eq('id', user.id)

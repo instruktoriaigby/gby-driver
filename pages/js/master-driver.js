@@ -69,6 +69,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
     models: {},
     carRows: [],
     selectedSourceTaskId: '',
+    selectedSchemeId: '',
     files: new Map(),
     drivers: []
   };
@@ -110,21 +111,21 @@ export async function initMasterDriver({ supabase, user, profile }) {
   };
 
   if (!canFillLoadingSchemes) {
-  el.manageArea?.classList.add('hidden');
+    el.manageArea?.classList.add('hidden');
 
-  document.getElementById('ksActiveSection')?.classList.add('hidden');
-  document.getElementById('ksFormSection')?.classList.add('hidden');
-  document.getElementById('ksRequiredPhotosSection')?.classList.add('hidden');
-  document.getElementById('ksWaitingSection')?.classList.add('hidden');
+    document.getElementById('ksActiveSection')?.classList.add('hidden');
+    document.getElementById('ksFormSection')?.classList.add('hidden');
+    document.getElementById('ksRequiredPhotosSection')?.classList.add('hidden');
+    document.getElementById('ksWaitingSection')?.classList.add('hidden');
 
-  el.activeList?.closest('section')?.classList.add('hidden');
-  el.waitingList?.closest('section')?.classList.add('hidden');
-  el.sourceTask?.closest('section')?.classList.add('hidden');
-}
+    el.activeList?.closest('section')?.classList.add('hidden');
+    el.waitingList?.closest('section')?.classList.add('hidden');
+    el.sourceTask?.closest('section')?.classList.add('hidden');
+  }
 
-if (!canManage && el.manageArea) {
-  el.manageArea.classList.add('hidden');
-}
+  if (!canManage && el.manageArea) {
+    el.manageArea.classList.add('hidden');
+  }
 
   function tr(key, fallback) {
     const value = t(key);
@@ -154,7 +155,7 @@ if (!canManage && el.manageArea) {
       active: tx('loading_schemes.status_active', 'Aktyvi'),
       waiting_approval: tx('loading_schemes.status_waiting', 'Laukia patvirtinimo'),
       approved: tx('loading_schemes.status_approved', 'Patvirtinta'),
-      needs_changes: tx('loading_schemes.status_changes', 'Grąžinta taisymui'),
+      needs_changes: tx('loading_schemes.status_changes', 'Reikalingi pataisymai'),
       rejected: tx('loading_schemes.status_rejected', 'Atmesta')
     };
 
@@ -256,6 +257,10 @@ if (!canManage && el.manageArea) {
     return state.schemes.find(item => String(item.source_task_id) === String(taskId));
   }
 
+  function getSchemeById(schemeId) {
+    return state.schemes.find(item => String(item.id) === String(schemeId));
+  }
+
   function getTaskName(task) {
     return task?.title || tr('loading_schemes.task_fallback', 'Krovimo schemos užduotis');
   }
@@ -309,8 +314,12 @@ if (!canManage && el.manageArea) {
       .join('');
   }
 
+  function getNeedsChangesSchemes() {
+    return state.schemes.filter(scheme => scheme.status === 'needs_changes');
+  }
+
   function renderCounters() {
-    const active = getActiveSourceTasks().length;
+    const active = getActiveSourceTasks().length + getNeedsChangesSchemes().length;
     const waiting = state.schemes.filter(s => s.status === 'waiting_approval').length;
     const approved = state.schemes.filter(s => s.status === 'approved').length;
 
@@ -322,8 +331,10 @@ if (!canManage && el.manageArea) {
   function getActiveSourceTasks() {
     return state.sourceTasks.filter(task => {
       const scheme = getSchemeBySourceTask(task.id);
+
       if (!scheme) return true;
-      return ['active', 'needs_changes', 'rejected'].includes(scheme.status);
+
+      return scheme.status === 'active';
     });
   }
 
@@ -335,12 +346,7 @@ if (!canManage && el.manageArea) {
     el.sourceTask.innerHTML = `
       <option value="">${escapeHtml(tr('loading_schemes.no_task_option', 'Be užduoties / rekomenduojama schema'))}</option>
       ${activeTasks.map(task => {
-        const scheme = getSchemeBySourceTask(task.id);
-        const suffix = scheme?.status === 'needs_changes'
-          ? ` · ${tr('loading_schemes.returned_for_changes_suffix', 'grąžinta taisymui')}`
-          : '';
-
-        return `<option value="${task.id}">${escapeHtml(getTaskName(task) + suffix)}</option>`;
+        return `<option value="${task.id}">${escapeHtml(getTaskName(task))}</option>`;
       }).join('')}
     `;
   }
@@ -388,8 +394,15 @@ if (!canManage && el.manageArea) {
   }
 
   function getSelectedScheme() {
-    if (!state.selectedSourceTaskId) return null;
-    return getSchemeBySourceTask(state.selectedSourceTaskId) || null;
+    if (state.selectedSchemeId) {
+      return getSchemeById(state.selectedSchemeId) || null;
+    }
+
+    if (state.selectedSourceTaskId) {
+      return getSchemeBySourceTask(state.selectedSourceTaskId) || null;
+    }
+
+    return null;
   }
 
   function getSelectedSchemePhotos() {
@@ -443,6 +456,9 @@ if (!canManage && el.manageArea) {
 
     const task = state.sourceTasks.find(item => String(item.id) === String(taskId));
     const scheme = getSchemeBySourceTask(taskId);
+
+    state.selectedSchemeId = scheme?.id || '';
+
     const schemeCars = scheme ? getSchemeCars(scheme.id) : [];
 
     const loadingPlace = document.getElementById('ksLoadingPlace');
@@ -469,25 +485,140 @@ if (!canManage && el.manageArea) {
     renderPhotoCards();
   }
 
+  function fillFormFromScheme(schemeId) {
+    const scheme = getSchemeById(schemeId);
+    if (!scheme) return;
+
+    state.selectedSchemeId = scheme.id;
+    state.selectedSourceTaskId = scheme.source_task_id || '';
+    state.files.clear();
+
+    if (el.sourceTask) {
+      el.sourceTask.value = scheme.source_task_id || '';
+    }
+
+    const schemeCars = getSchemeCars(scheme.id);
+
+    const loadingPlace = document.getElementById('ksLoadingPlace');
+    const destination = document.getElementById('ksDestination');
+    const carrierType = document.getElementById('ksCarrierType');
+    const schemeDescription = document.getElementById('ksSchemeDescription');
+    const masterComment = document.getElementById('ksMasterComment');
+
+    if (loadingPlace) loadingPlace.value = scheme.loading_place || '';
+    if (destination) destination.value = scheme.destination || '';
+    if (carrierType) carrierType.value = scheme.carrier_type || '';
+    if (schemeDescription) schemeDescription.value = scheme.scheme_description || '';
+    if (masterComment) masterComment.value = scheme.master_driver_comment || '';
+
+    state.carRows = schemeCars.length
+      ? schemeCars.map(car => ({
+          make: car.car_make || '',
+          model: car.car_model || '',
+          count: car.car_count || 1
+        }))
+      : [{ make: '', model: '', count: 1 }];
+
+    renderCarRows();
+    renderPhotoCards();
+  }
+
+  function schemeMatchesQuery(scheme, query) {
+    if (!query) return true;
+
+    const cars = getSchemeCars(scheme.id)
+      .map(car => `${car.car_make} ${car.car_model}`)
+      .join(' ');
+
+    return [
+      scheme.loading_place,
+      scheme.destination,
+      scheme.carrier_type,
+      scheme.scheme_description,
+      scheme.master_driver_comment,
+      scheme.instructor_comment,
+      cars
+    ].some(value => String(value || '').toLowerCase().includes(query));
+  }
+
+  function taskMatchesQuery(task, query) {
+    if (!query) return true;
+
+    return [task.title, task.description].some(value =>
+      String(value || '').toLowerCase().includes(query)
+    );
+  }
+
   function renderActiveList() {
     if (!el.activeList) return;
 
     const query = (el.activeSearch?.value || '').toLowerCase().trim();
 
-    const activeTasks = getActiveSourceTasks().filter(task => {
-      if (!query) return true;
+    const needsChangesSchemes = getNeedsChangesSchemes()
+      .filter(scheme => schemeMatchesQuery(scheme, query));
 
-      return [task.title, task.description].some(value =>
-        String(value || '').toLowerCase().includes(query)
-      );
-    });
+    const activeTasks = getActiveSourceTasks()
+      .filter(task => taskMatchesQuery(task, query));
 
-    if (!activeTasks.length) {
+    if (!needsChangesSchemes.length && !activeTasks.length) {
       el.activeList.innerHTML = `<div class="text-slate-400">${escapeHtml(tr('loading_schemes.no_active_tasks', 'Aktyvių užduočių nėra'))}</div>`;
       return;
     }
 
-    el.activeList.innerHTML = activeTasks.map(task => {
+    function renderNeedsChangesCard(scheme) {
+      const cars = getSchemeCars(scheme.id);
+
+      return `
+        <div class="bg-orange-950/40 border border-orange-700 rounded-xl p-4">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+              <div class="font-semibold text-orange-200">
+                ${escapeHtml(scheme.loading_place || '-')} → ${escapeHtml(scheme.destination || '-')}
+              </div>
+
+              <div class="text-sm text-slate-400 mt-1">
+                ${escapeHtml(scheme.carrier_type || '-')} · ${formatDate(scheme.updated_at)}
+              </div>
+
+              <div class="mt-2">
+                <span class="text-xs px-3 py-1 rounded-full ${statusClass(scheme.status)}">
+                  ${escapeHtml(statusLabel(scheme.status))}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="ks-select-scheme bg-orange-600 hover:bg-orange-700 rounded-xl px-4 py-2 text-sm font-semibold"
+              data-id="${scheme.id}"
+            >
+              ${escapeHtml(tr('loading_schemes.fix_scheme', 'Taisyti'))}
+            </button>
+          </div>
+
+          ${cars.length ? `
+            <div class="mt-3 flex flex-wrap gap-2">
+              ${cars.map(car => `
+                <span class="text-xs bg-slate-900 border border-slate-700 rounded-full px-3 py-1">
+                  ${escapeHtml(car.car_make)} ${escapeHtml(car.car_model || '')} · ${escapeHtml(car.car_count)} vnt.
+                </span>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${scheme.instructor_comment ? `
+            <div class="mt-3 bg-slate-900 border border-orange-700 rounded-xl p-3 text-sm">
+              <div class="text-orange-300 font-semibold mb-1">
+                ${escapeHtml(tr('loading_schemes.required_changes', 'Reikalingi pataisymai'))}:
+              </div>
+              <div class="whitespace-pre-line">${escapeHtml(scheme.instructor_comment)}</div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderTaskCard(task) {
       const scheme = getSchemeBySourceTask(task.id);
 
       return `
@@ -496,6 +627,14 @@ if (!canManage && el.manageArea) {
             <div>
               <div class="font-semibold">${escapeHtml(getTaskName(task))}</div>
               <div class="text-sm text-slate-400 mt-1">${escapeHtml(task.description || '')}</div>
+
+              ${scheme ? `
+                <div class="mt-2">
+                  <span class="text-xs px-3 py-1 rounded-full ${statusClass(scheme.status)}">
+                    ${escapeHtml(statusLabel(scheme.status))}
+                  </span>
+                </div>
+              ` : ''}
             </div>
 
             <button
@@ -506,16 +645,47 @@ if (!canManage && el.manageArea) {
               ${escapeHtml(tr('loading_schemes.fill', 'Pildyti'))}
             </button>
           </div>
-
-          ${scheme?.instructor_comment ? `
-            <div class="mt-3 bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm">
-              <div class="text-slate-400 mb-1">${escapeHtml(tr('loading_schemes.instructor_comment', 'Instruktoriaus komentaras'))}:</div>
-              <div>${escapeHtml(scheme.instructor_comment)}</div>
-            </div>
-          ` : ''}
         </div>
       `;
-    }).join('');
+    }
+
+    const blocks = [];
+
+    if (needsChangesSchemes.length) {
+      blocks.push(`
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-lg font-semibold text-orange-300">
+              ${escapeHtml(tr('loading_schemes.required_changes', 'Reikalingi pataisymai'))}
+            </h3>
+            <span class="text-xs bg-orange-600 rounded-full px-3 py-1">
+              ${needsChangesSchemes.length}
+            </span>
+          </div>
+
+          ${needsChangesSchemes.map(renderNeedsChangesCard).join('')}
+        </div>
+      `);
+    }
+
+    if (activeTasks.length) {
+      blocks.push(`
+        <div class="space-y-3 ${needsChangesSchemes.length ? 'mt-6 pt-5 border-t border-slate-700' : ''}">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-lg font-semibold">
+              ${escapeHtml(tr('loading_schemes.active_tasks', 'Aktyvios užduotys'))}
+            </h3>
+            <span class="text-xs bg-blue-600 rounded-full px-3 py-1">
+              ${activeTasks.length}
+            </span>
+          </div>
+
+          ${activeTasks.map(renderTaskCard).join('')}
+        </div>
+      `);
+    }
+
+    el.activeList.innerHTML = blocks.join('');
   }
 
   function renderWaitingList() {
@@ -846,7 +1016,7 @@ if (!canManage && el.manageArea) {
       const existing = getSelectedScheme();
 
       const payload = {
-        source_task_id: state.selectedSourceTaskId || null,
+        source_task_id: state.selectedSourceTaskId || existing?.source_task_id || null,
         client: null,
         loading_place: text('ksLoadingPlace'),
         destination: text('ksDestination'),
@@ -927,6 +1097,7 @@ if (!canManage && el.manageArea) {
 
   function clearForm() {
     state.selectedSourceTaskId = '';
+    state.selectedSchemeId = '';
     state.files.clear();
     state.carRows = [{ make: '', model: '', count: 1 }];
 
@@ -958,6 +1129,11 @@ if (!canManage && el.manageArea) {
     if (status === 'approved') {
       payload.approved_by = user.id;
       payload.approved_at = new Date().toISOString();
+    }
+
+    if (['needs_changes', 'rejected', 'waiting_approval'].includes(status)) {
+      payload.approved_by = null;
+      payload.approved_at = null;
     }
 
     const { error } = await supabase
@@ -1676,7 +1852,7 @@ if (!canManage && el.manageArea) {
           </div>
         ` : ''}
 
-        ${canReview && ['waiting_approval', 'needs_changes', 'rejected'].includes(scheme.status) ? `
+        ${canReview && scheme.status === 'waiting_approval' ? `
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
             <button type="button" class="ks-modal-approve bg-green-600 hover:bg-green-700 rounded-xl p-3 text-sm font-semibold" data-id="${scheme.id}">
               ${escapeHtml(tr('loading_schemes.approve', 'Patvirtinti'))}
@@ -1780,9 +1956,11 @@ if (!canManage && el.manageArea) {
     );
   }
 
-  function confirmDiscardIfDirty(nextTaskId) {
+  function confirmDiscardIfDirty(nextTaskId, nextSchemeId = '') {
     if (!isFormDirty()) return true;
-    if (String(state.selectedSourceTaskId || '') === String(nextTaskId || '')) return true;
+
+    if (nextTaskId && String(state.selectedSourceTaskId || '') === String(nextTaskId || '')) return true;
+    if (nextSchemeId && String(state.selectedSchemeId || '') === String(nextSchemeId || '')) return true;
 
     return confirm(tx(
       'loading_schemes.discard_confirm',
@@ -1791,19 +1969,29 @@ if (!canManage && el.manageArea) {
   }
 
   el.activeList?.addEventListener('click', event => {
-    const btn = event.target.closest('.ks-select-task');
-    if (!btn) return;
+    const taskBtn = event.target.closest('.ks-select-task');
+    const schemeBtn = event.target.closest('.ks-select-scheme');
+
+    if (!taskBtn && !schemeBtn) return;
+
+    const taskId = taskBtn?.dataset.id || '';
+    const schemeId = schemeBtn?.dataset.id || '';
 
     if (isFormDirty()) {
       const ok = confirm(tr('loading_schemes.interrupt_confirm', 'Jau pradėtas pildymas. Ar tikrai nutraukti dabartinį pildymą ir atidaryti kitą užduotį?'));
       if (!ok) return;
     }
 
-    if (!confirmDiscardIfDirty(btn.dataset.id)) return;
+    if (!confirmDiscardIfDirty(taskId, schemeId)) return;
 
-    if (el.sourceTask) el.sourceTask.value = btn.dataset.id;
+    if (taskBtn) {
+      if (el.sourceTask) el.sourceTask.value = taskId;
+      fillFormFromTask(taskId);
+    }
 
-    fillFormFromTask(btn.dataset.id);
+    if (schemeBtn) {
+      fillFormFromScheme(schemeId);
+    }
 
     document.getElementById('ksSourceTask')?.scrollIntoView({
       behavior: 'smooth',
