@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gby-driver-v25';
+const CACHE_NAME = 'gby-driver-v26';
 
 const STATIC_ASSETS = [
   '/',
