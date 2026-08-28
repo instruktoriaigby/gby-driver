@@ -38,7 +38,6 @@ export async function initDefektas({ supabase, user, profile }) {
           id,
           email,
           full_name,
-          name,
           role,
           lang,
           transport_mode,
@@ -84,6 +83,7 @@ export async function initDefektas({ supabase, user, profile }) {
   const isDriver = role === 'driver' || role === 'truck_driver';
 
   let driversRows = [];
+  let managersRows = [];
 
   function getCurrentLang() {
     return localStorage.getItem('lang') || profile?.lang || 'lt';
@@ -102,7 +102,7 @@ export async function initDefektas({ supabase, user, profile }) {
         report_incomplete_title: 'Neužpildyta ataskaita',
         report_incomplete_message: 'Užpildyk visus privalomus laukus:',
         data_load_error_title: 'Nepavyko užkrauti duomenų',
-        data_load_error_message: 'Nepavyko užkrauti vilkikų, vairuotojų arba lokacijų sąrašų. Patikrink Console klaidą.',
+        data_load_error_message: 'Nepavyko užkrauti vilkikų, vairuotojų, vadybininkų arba lokacijų sąrašų. Patikrink Console klaidą.',
         save_error_title: 'Nepavyko išsaugoti',
         save_missing_id: 'Defektas sukurtas, bet nepavyko gauti jo ID.',
         submit_error_title: 'Nepavyko pateikti ataskaitos',
@@ -115,6 +115,8 @@ export async function initDefektas({ supabase, user, profile }) {
         cmr_number: 'CMR numeris',
         truck: 'Vilkikas',
         driver: 'Vairuotojas',
+        manager: 'Vadybininkas',
+        manager_placeholder: 'Pasirinkite vadybininką',
         stage: 'Etapas',
         loading_place: 'Pasikrovimo vieta',
         unloading_place: 'Išsikrovimo vieta',
@@ -145,7 +147,7 @@ export async function initDefektas({ supabase, user, profile }) {
         report_incomplete_title: 'Incomplete report',
         report_incomplete_message: 'Fill in all required fields:',
         data_load_error_title: 'Failed to load data',
-        data_load_error_message: 'Failed to load truck, driver or location lists. Check Console error.',
+        data_load_error_message: 'Failed to load truck, driver, manager or location lists. Check Console error.',
         save_error_title: 'Failed to save',
         save_missing_id: 'The defect was created, but its ID could not be received.',
         submit_error_title: 'Failed to submit report',
@@ -158,6 +160,8 @@ export async function initDefektas({ supabase, user, profile }) {
         cmr_number: 'CMR number',
         truck: 'Truck',
         driver: 'Driver',
+        manager: 'Manager',
+        manager_placeholder: 'Select manager',
         stage: 'Stage',
         loading_place: 'Loading place',
         unloading_place: 'Unloading place',
@@ -188,7 +192,7 @@ export async function initDefektas({ supabase, user, profile }) {
         report_incomplete_title: 'Отчёт не заполнен',
         report_incomplete_message: 'Заполните все обязательные поля:',
         data_load_error_title: 'Не удалось загрузить данные',
-        data_load_error_message: 'Не удалось загрузить список тягачей, водителей или локаций. Проверьте ошибку в Console.',
+        data_load_error_message: 'Не удалось загрузить список тягачей, водителей, менеджеров или локаций. Проверьте ошибку в Console.',
         save_error_title: 'Не удалось сохранить',
         save_missing_id: 'Дефект создан, но не удалось получить его ID.',
         submit_error_title: 'Не удалось отправить отчёт',
@@ -201,6 +205,8 @@ export async function initDefektas({ supabase, user, profile }) {
         cmr_number: 'Номер CMR',
         truck: 'Тягач',
         driver: 'Водитель',
+        manager: 'Менеджер',
+        manager_placeholder: 'Выберите менеджера',
         stage: 'Этап',
         loading_place: 'Место загрузки',
         unloading_place: 'Место выгрузки',
@@ -298,6 +304,51 @@ export async function initDefektas({ supabase, user, profile }) {
     });
 
     console.log('✅ Užpildyta:', id, data.length);
+  }
+
+  function fillManagersSelect() {
+    const select = document.getElementById('manager_id');
+
+    if (!select) {
+      console.error('❌ Nerastas vadybininko select: manager_id');
+      return;
+    }
+
+    const currentValue = select.value || '';
+
+    select.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.textContent = tr('manager_placeholder', 'Pasirinkite vadybininką');
+
+    select.appendChild(placeholder);
+
+    managersRows
+      .filter(manager => manager?.is_active !== false)
+      .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'lt'))
+      .forEach(manager => {
+        const option = document.createElement('option');
+        option.value = manager.id;
+        option.textContent = manager.full_name;
+        select.appendChild(option);
+      });
+
+    if (currentValue) {
+      select.value = currentValue;
+    }
+
+    console.log('✅ Vadybininkų užkrauta:', managersRows.length);
+  }
+
+  function getSelectedManager() {
+    const managerId = document.getElementById('manager_id')?.value || '';
+
+    if (!managerId) return null;
+
+    return managersRows.find(manager => String(manager.id) === String(managerId)) || null;
   }
 
   function applyTransportModeVisibility() {
@@ -746,12 +797,18 @@ export async function initDefektas({ supabase, user, profile }) {
   async function loadReferenceLists() {
     let trucksResult;
     let driversResult;
+    let managersResult;
     let locationsRows;
 
     try {
-      [trucksResult, driversResult, locationsRows] = await Promise.all([
+      [trucksResult, driversResult, managersResult, locationsRows] = await Promise.all([
         supabase.from('trucks').select('*'),
         supabase.from('drivers').select('*'),
+        supabase
+          .from('managers')
+          .select('id, full_name, is_active')
+          .eq('is_active', true)
+          .order('full_name', { ascending: true }),
         fetchAllLocations()
       ]);
     } catch (error) {
@@ -760,28 +817,30 @@ export async function initDefektas({ supabase, user, profile }) {
       showModal({
         type: 'error',
         title: tr('data_load_error_title', 'Nepavyko užkrauti duomenų'),
-        message: tr('data_load_error_message', 'Nepavyko užkrauti vilkikų, vairuotojų arba lokacijų sąrašų. Patikrink Console klaidą.')
+        message: tr('data_load_error_message', 'Nepavyko užkrauti vilkikų, vairuotojų, vadybininkų arba lokacijų sąrašų. Patikrink Console klaidą.')
       });
 
       return;
     }
 
-    if (trucksResult.error || driversResult.error) {
+    if (trucksResult.error || driversResult.error || managersResult.error) {
       console.error('❌ Supabase sąrašų klaida:', {
         trucksError: trucksResult.error,
-        driversError: driversResult.error
+        driversError: driversResult.error,
+        managersError: managersResult.error
       });
 
       showModal({
         type: 'error',
         title: tr('data_load_error_title', 'Nepavyko užkrauti duomenų'),
-        message: tr('data_load_error_message', 'Nepavyko užkrauti vilkikų, vairuotojų arba lokacijų sąrašų. Patikrink Console klaidą.')
+        message: tr('data_load_error_message', 'Nepavyko užkrauti vilkikų, vairuotojų, vadybininkų arba lokacijų sąrašų. Patikrink Console klaidą.')
       });
 
       return;
     }
 
     driversRows = driversResult.data || [];
+    managersRows = managersResult.data || [];
 
     const trucks = (trucksResult.data || [])
       .map(item =>
@@ -829,6 +888,7 @@ export async function initDefektas({ supabase, user, profile }) {
       fill('driverList', drivers);
     }
 
+    fillManagersSelect();
     fill('locationsList', locations);
 
     console.log('✅ Lokacijų užkrauta:', locations.length);
@@ -842,6 +902,8 @@ export async function initDefektas({ supabase, user, profile }) {
     const driverValue = isDriver
       ? getCurrentDriverName()
       : getValue(formData, ['driver', 'driverName', 'driver_name']);
+
+    const selectedManager = getSelectedManager();
 
     const required = [
       {
@@ -861,6 +923,11 @@ export async function initDefektas({ supabase, user, profile }) {
           form.querySelector('[name="driver"]') ||
           form.querySelector('[name="driverName"]') ||
           form.querySelector('[name="driver_name"]')
+      },
+      {
+        label: tr('manager', 'Vadybininkas'),
+        value: selectedManager?.id,
+        element: form.querySelector('[name="manager_id"]')
       },
       {
         label: tr('stage', 'Etapas'),
@@ -1142,6 +1209,22 @@ export async function initDefektas({ supabase, user, profile }) {
         return;
       }
 
+      const selectedManager = getSelectedManager();
+
+      if (!selectedManager) {
+        showModal({
+          type: 'error',
+          title: tr('report_incomplete_title', 'Neužpildyta ataskaita'),
+          message:
+            tr('report_incomplete_message', 'Užpildyk visus privalomus laukus:') +
+            '\n\n' +
+            `• ${tr('manager', 'Vadybininkas')}`
+        });
+
+        markInvalid(form.querySelector('[name="manager_id"]'));
+        return;
+      }
+
       const currentDriverName = isDriver
         ? getCurrentDriverName()
         : getValue(formData, ['driver', 'driverName', 'driver_name']);
@@ -1150,6 +1233,9 @@ export async function initDefektas({ supabase, user, profile }) {
         driver_id: user?.id || null,
         driver_name: currentDriverName,
         transport_mode: transportMode,
+
+        manager_id: selectedManager.id,
+        manager_name: selectedManager.full_name,
 
         cmr_number:
           getValue(formData, ['cmr', 'cmr_number', 'cmrNumber']),
@@ -1245,6 +1331,7 @@ export async function initDefektas({ supabase, user, profile }) {
       clearInvalidMarks();
       updateAllPhotoStatuses();
       applyTransportModeVisibility();
+      fillManagersSelect();
 
       if (isDriver) {
         lockDriverFieldForLoggedInDriver();
