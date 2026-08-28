@@ -74,7 +74,8 @@
     "mode_truck": "Trucks",
     "stage_loading_own": "Defect caused during loading",
     "vin_number": "VIN",
-    "vin_placeholder": "Enter VIN"
+    "vin_placeholder": "Enter VIN",
+    "manager": "Manager"
   },
   "instr": {
     "title": "Driver Instructions",

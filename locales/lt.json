@@ -74,7 +74,8 @@
     "mode_truck": "Vilkikai",
     "stage_loading_own": "Defektas padarytas kraunantis",
     "vin_number": "VIN",
-    "vin_placeholder": "Įrašykite VIN"
+    "vin_placeholder": "Įrašykite VIN",
+    "manager": "Vadybininkas"
   },
   "instr": {
     "title": "Instrukcijos vairuotojams",
