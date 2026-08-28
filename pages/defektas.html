@@ -46,42 +46,54 @@
         <datalist id="driverList"></datalist>
       </div>
 
+      <!-- MANAGER -->
+      <div>
+        <label class="block mb-1" data-i18n="app.manager">Vadybininkas</label>
+        <select
+          name="manager_id"
+          id="manager_id"
+          class="w-full bg-slate-800 p-3 rounded-xl"
+        >
+          <option value="" disabled selected data-i18n="app.manager_placeholder">Pasirinkite vadybininką</option>
+        </select>
+      </div>
+
       <!-- STAGE -->
-<div>
-  <label class="block mb-2" data-i18n="app.stage">Defekto atsiradimo etapas</label>
+      <div>
+        <label class="block mb-2" data-i18n="app.stage">Defekto atsiradimo etapas</label>
 
-  <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
 
-    <label class="cursor-pointer">
-      <input type="radio" name="stage" value="loading_sender" class="peer hidden">
-      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-        <span data-i18n="app.stage_loading">Defektas iš pasikrovimo (ne mūsų)</span>
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="loading_sender" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_loading">Defektas iš pasikrovimo (ne mūsų)</span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="loading_own" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_loading_own">Defektas padarytas kraunantis</span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="transport" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_transport">Transportavimas</span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="stage" value="unloading" class="peer hidden">
+            <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
+              <span data-i18n="app.stage_unloading">Iškrovimas</span>
+            </div>
+          </label>
+
+        </div>
       </div>
-    </label>
-
-    <label class="cursor-pointer">
-      <input type="radio" name="stage" value="loading_own" class="peer hidden">
-      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-        <span data-i18n="app.stage_loading_own">Defektas padarytas kraunantis</span>
-      </div>
-    </label>
-
-    <label class="cursor-pointer">
-      <input type="radio" name="stage" value="transport" class="peer hidden">
-      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-        <span data-i18n="app.stage_transport">Transportavimas</span>
-      </div>
-    </label>
-
-    <label class="cursor-pointer">
-      <input type="radio" name="stage" value="unloading" class="peer hidden">
-      <div class="bg-slate-800 p-3 rounded-xl text-center peer-checked:bg-blue-600">
-        <span data-i18n="app.stage_unloading">Iškrovimas</span>
-      </div>
-    </label>
-
-  </div>
-</div>
 
       <!-- PASIKROVIMAS -->
       <div>
