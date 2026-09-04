@@ -1,5 +1,5 @@
 const SUPABASE_FUNCTION_URL =
-  'https://mpinqqikfmzwionkynxh.supabase.co/functions/v1/generate-defect-report';
+  'https://mpinqqikfmzwionkynxh.supabase.co/functions/v1/dynamic-endpoint';
 
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token') || '';
