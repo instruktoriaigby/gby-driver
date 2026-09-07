@@ -569,111 +569,109 @@ export async function initDefektas({ supabase, user, profile }) {
     return extension;
   }
 
-  function getCompressionOptions(category) {
-    const normalized = normalizeCategory(category);
+  function getCompressionProfiles(category) {
+  const normalized = normalizeCategory(category);
 
-    if (normalized === 'document') {
-      return {
-        maxWidth: 2000,
-        maxHeight: 2000,
-        quality: 0.8
-      };
-    }
-
-    return {
-      maxWidth: 1600,
-      maxHeight: 1600,
-      quality: 0.7
-    };
+  if (normalized === 'document') {
+    return [
+      { maxWidth: 1600, maxHeight: 1600, quality: 0.68, maxSize: 1600 * 1024 },
+      { maxWidth: 1400, maxHeight: 1400, quality: 0.58, maxSize: 1600 * 1024 },
+      { maxWidth: 1200, maxHeight: 1200, quality: 0.50, maxSize: 1600 * 1024 }
+    ];
   }
 
+  return [
+    { maxWidth: 1200, maxHeight: 1200, quality: 0.60, maxSize: 1000 * 1024 },
+    { maxWidth: 1000, maxHeight: 1000, quality: 0.50, maxSize: 1000 * 1024 },
+    { maxWidth: 900, maxHeight: 900, quality: 0.45, maxSize: 1000 * 1024 }
+  ];
+}
+
+  async function compressWithProfile(file, profile) {
+  const imageBitmap = await createImageBitmap(file);
+
+  const originalWidth = imageBitmap.width;
+  const originalHeight = imageBitmap.height;
+
+  if (!originalWidth || !originalHeight) {
+    imageBitmap.close?.();
+    return null;
+  }
+
+  const ratio = Math.min(
+    profile.maxWidth / originalWidth,
+    profile.maxHeight / originalHeight,
+    1
+  );
+
+  const targetWidth = Math.max(1, Math.round(originalWidth * ratio));
+  const targetHeight = Math.max(1, Math.round(originalHeight * ratio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  if (!ctx) {
+    imageBitmap.close?.();
+    return null;
+  }
+
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+  imageBitmap.close?.();
+
+  const blob = await new Promise(resolve => {
+    canvas.toBlob(resolve, 'image/jpeg', profile.quality);
+  });
+
+  if (!blob) return null;
+
+  return {
+    blob,
+    targetWidth,
+    targetHeight,
+    originalWidth,
+    originalHeight
+  };
+}
+
   async function compressImageFileForUpload(file, category) {
-    if (!file) return file;
+  if (!file) return file;
 
-    const extension = validateFileFormat(file);
-    const lowerType = String(file.type || '').toLowerCase();
+  const extension = validateFileFormat(file);
+  const lowerType = String(file.type || '').toLowerCase();
 
-    // HEIC / HEIF naršyklės dažnai nemoka perskaityti per canvas.
-    // Tokiu atveju paliekame originalą, kad forma nesugestų.
-    if (extension === 'heic' || extension === 'heif' || lowerType.includes('heic') || lowerType.includes('heif')) {
-      console.warn('⚠️ HEIC/HEIF nuotrauka nekompresuojama naršyklėje:', file.name);
-      return file;
-    }
+  if (extension === 'heic' || extension === 'heif' || lowerType.includes('heic') || lowerType.includes('heif')) {
+    console.warn('⚠️ HEIC/HEIF nuotrauka nekompresuojama naršyklėje:', file.name);
+    return file;
+  }
 
-    if (
-      typeof createImageBitmap !== 'function' ||
-      typeof document === 'undefined' ||
-      typeof document.createElement !== 'function'
-    ) {
-      console.warn('⚠️ Naršyklė nepalaiko nuotraukų kompresijos. Įkeliama originali nuotrauka:', file.name);
-      return file;
-    }
+  if (
+    typeof createImageBitmap !== 'function' ||
+    typeof document === 'undefined' ||
+    typeof document.createElement !== 'function'
+  ) {
+    console.warn('⚠️ Naršyklė nepalaiko nuotraukų kompresijos. Įkeliama originali nuotrauka:', file.name);
+    return file;
+  }
 
-    try {
-      const options = getCompressionOptions(category);
-      const imageBitmap = await createImageBitmap(file);
+  try {
+    const profiles = getCompressionProfiles(category);
+    let bestCompressed = null;
 
-      const originalWidth = imageBitmap.width;
-      const originalHeight = imageBitmap.height;
+    for (const profile of profiles) {
+      const result = await compressWithProfile(file, profile);
 
-      if (!originalWidth || !originalHeight) {
-        imageBitmap.close?.();
-        return file;
-      }
-
-      const ratio = Math.min(
-        options.maxWidth / originalWidth,
-        options.maxHeight / originalHeight,
-        1
-      );
-
-      const targetWidth = Math.max(1, Math.round(originalWidth * ratio));
-      const targetHeight = Math.max(1, Math.round(originalHeight * ratio));
-
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-
-      const ctx = canvas.getContext('2d', {
-        alpha: false
-      });
-
-      if (!ctx) {
-        imageBitmap.close?.();
-        return file;
-      }
-
-      ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
-      imageBitmap.close?.();
-
-      const blob = await new Promise(resolve => {
-        canvas.toBlob(
-          resolve,
-          'image/jpeg',
-          options.quality
-        );
-      });
-
-      if (!blob) {
-        return file;
-      }
-
-      // Jeigu po kompresijos failas netyčia gavosi didesnis, paliekame originalą.
-      if (blob.size >= file.size) {
-        console.log('ℹ️ Kompresija neapsimoka, paliekamas originalas:', {
-          file: file.name,
-          originalSize: file.size,
-          compressedSize: blob.size
-        });
-
-        return file;
+      if (!result?.blob) {
+        continue;
       }
 
       const compressedName = String(file.name || 'photo')
         .replace(/\.[^.]+$/, '') + '.jpg';
 
       const compressedFile = new File(
-        [blob],
+        [result.blob],
         compressedName,
         {
           type: 'image/jpeg',
@@ -681,23 +679,47 @@ export async function initDefektas({ supabase, user, profile }) {
         }
       );
 
-      console.log('✅ Nuotrauka suspausta prieš įkėlimą:', {
+      bestCompressed = {
+        file: compressedFile,
+        profile,
+        ...result
+      };
+
+      console.log('✅ Kompresijos bandymas:', {
         category,
         file: file.name,
         originalSize: file.size,
         compressedSize: compressedFile.size,
-        originalWidth,
-        originalHeight,
-        targetWidth,
-        targetHeight
+        maxSize: profile.maxSize,
+        quality: profile.quality,
+        maxWidth: profile.maxWidth,
+        maxHeight: profile.maxHeight,
+        targetWidth: result.targetWidth,
+        targetHeight: result.targetHeight
       });
 
-      return compressedFile;
-    } catch (error) {
-      console.warn('⚠️ Nepavyko suspausti nuotraukos, įkeliama originali:', file.name, error);
-      return file;
+      if (compressedFile.size <= profile.maxSize) {
+        return compressedFile;
+      }
     }
+
+    if (bestCompressed?.file && bestCompressed.file.size < file.size) {
+      console.warn('⚠️ Foto vis dar didesnė nei tikslas, bet įkeliama geriausia suspausta versija:', {
+        file: file.name,
+        originalSize: file.size,
+        compressedSize: bestCompressed.file.size
+      });
+
+      return bestCompressed.file;
+    }
+
+    console.warn('⚠️ Kompresija nesumažino failo, įkeliama originali:', file.name);
+    return file;
+  } catch (error) {
+    console.warn('⚠️ Nepavyko suspausti nuotraukos, įkeliama originali:', file.name, error);
+    return file;
   }
+}
 
   function getDateTimeParts() {
     const now = new Date();
