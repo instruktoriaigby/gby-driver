@@ -19,6 +19,10 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   const filterUserWrap = document.getElementById('filterUserWrap');
   const filterInstr = document.getElementById('filterInstr');
 
+  const taskBulkActions = document.getElementById('taskBulkActions');
+  const selectedTasksCount = document.getElementById('selectedTasksCount');
+  const deleteSelectedTasksBtn = document.getElementById('deleteSelectedTasks');
+  const selectAllTasks = document.getElementById('selectAllTasks');
   const taskStats = document.getElementById('taskStats');
   const pendingTestsCount = document.getElementById('pendingTestsCount');
   const pendingConfirmsCount = document.getElementById('pendingConfirmsCount');
@@ -86,11 +90,19 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     taskStats.classList.toggle('hidden', !canApprove);
   }
 
+  document.querySelectorAll('.task-bulk-col').forEach(el => {
+    el.classList.toggle('hidden', role !== 'admin');
+  });
+
+  if (taskBulkActions) {
+    taskBulkActions.classList.toggle('hidden', role !== 'admin');
+  }
   let drivers = [];
   let groups = [];
   let groupMembers = [];
   let instructions = [];
   let tasks = [];
+  let selectedTaskIds = new Set();
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -156,7 +168,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     title = tx('common.confirmation', 'Patvirtinimas'),
     message = '',
     confirmText = tx('tasks.approve', 'Patvirtinti'),
-    cancelText = tx('tasks.cancel', 'Atšaukti'),
+    cancelText = tx('tasks.cancel', 'Atsaukti'),
     type = 'warning'
   }) {
     return new Promise(resolve => {
@@ -273,7 +285,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
               id="approveCancel"
               class="bg-slate-700 hover:bg-slate-600 px-5 py-2 rounded-xl font-semibold"
             >
-              ${tx('tasks.cancel', 'Atšaukti')}
+              ${tx('tasks.cancel', 'Atsaukti')}
             </button>
 
             <button
@@ -517,37 +529,426 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     return '';
   }
 
+  function getSelectedInstructionLang() {
+    const instrId = instrSelect?.value || '';
+    const selectedInstr = getInstructionById(instrId);
+
+    return String(
+      selectedInstr?.lang ||
+      instrLangSelect?.value ||
+      profile.lang ||
+      localStorage.getItem('lang') ||
+      'lt'
+    ).toLowerCase();
+  }
+
+  function getLanguageFilteredDrivers() {
+    const selectedLang = getSelectedInstructionLang();
+
+    return drivers.filter(driver => {
+      if (driver.role !== assignableDriverRole) return false;
+      return String(driver.lang || '').toLowerCase() === selectedLang;
+    });
+  }
+
+  function getSelectedTaskUserValues() {
+    const select = document.getElementById('taskUser');
+    if (!select) return ['all'];
+
+    const values = Array.from(select.selectedOptions || [])
+      .map(option => option.value)
+      .filter(Boolean);
+
+    return values.length ? values : ['all'];
+  }
+
+
+  function ensureDriverPickerStyles() {
+    if (document.getElementById('taskDriverPickerStyles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'taskDriverPickerStyles';
+    style.textContent = `
+      .task-driver-picker {
+        position: relative;
+        width: 100%;
+      }
+
+      .task-driver-picker-toggle {
+        width: 100%;
+        min-height: 56px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(71, 85, 105, 0.9);
+        background: #1e293b;
+        color: #fff;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+
+      .task-driver-picker-toggle:hover {
+        background: #263449;
+      }
+
+      .task-driver-picker-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .task-driver-picker-arrow {
+        flex-shrink: 0;
+        opacity: 0.8;
+      }
+
+      .task-driver-picker-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: #0f172a;
+        border: 1px solid rgba(71, 85, 105, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+        padding: 10px;
+        min-width: 320px;
+      }
+
+      .task-driver-picker-menu.hidden {
+        display: none;
+      }
+
+      .task-driver-picker-search {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(71, 85, 105, 0.95);
+        background: #1e293b;
+        color: #fff;
+        outline: none;
+      }
+
+      .task-driver-picker-search::placeholder {
+        color: #94a3b8;
+      }
+
+      .task-driver-picker-options {
+        max-height: 280px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-right: 2px;
+      }
+
+      .task-driver-picker-option {
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(30, 41, 59, 0.75);
+      }
+
+      .task-driver-picker-option:hover {
+        background: rgba(51, 65, 85, 0.95);
+      }
+
+      .task-driver-picker-option label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1.25;
+      }
+
+      .task-driver-picker-option input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        accent-color: #3b82f6;
+      }
+
+      .task-driver-picker-option-all {
+        border-bottom: 1px solid rgba(71, 85, 105, 0.55);
+        margin-bottom: 6px;
+        padding-bottom: 10px;
+      }
+
+      .task-driver-picker-empty {
+        color: #94a3b8;
+        padding: 10px;
+        font-size: 14px;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function ensureDriverPickerUi() {
+    const select = document.getElementById('taskUser');
+    if (!select) return null;
+
+    ensureDriverPickerStyles();
+
+    let picker = document.getElementById('taskDriverPicker');
+
+    if (!picker) {
+      picker = document.createElement('div');
+      picker.id = 'taskDriverPicker';
+      picker.className = 'task-driver-picker';
+
+      picker.innerHTML = `
+        <button type="button" class="task-driver-picker-toggle" id="taskDriverPickerToggle">
+          <span class="task-driver-picker-label" id="taskDriverPickerLabel">Visiems pagal instr. kalba</span>
+          <span class="task-driver-picker-arrow">v</span>
+        </button>
+
+        <div class="task-driver-picker-menu hidden" id="taskDriverPickerMenu">
+          <input
+            type="text"
+            class="task-driver-picker-search"
+            id="taskDriverPickerSearch"
+            placeholder="Ieskoti vairuotojo..." autocomplete="off"
+          >
+
+          <div class="task-driver-picker-options" id="taskDriverPickerOptions"></div>
+        </div>
+      `;
+
+      select.insertAdjacentElement('afterend', picker);
+    }
+
+    select.style.display = 'none';
+
+    return picker;
+  }
+
+  function getTaskUserSelect() {
+    return document.getElementById('taskUser');
+  }
+
+  function getDriverPickerSelectedValues() {
+    const select = getTaskUserSelect();
+    if (!select) return ['all'];
+
+    const values = Array.from(select.selectedOptions || [])
+      .map(option => option.value)
+      .filter(Boolean);
+
+    return values.length ? values : ['all'];
+  }
+
+  function setDriverPickerSelectedValues(values) {
+    const select = getTaskUserSelect();
+    if (!select) return;
+
+    const valueSet = new Set(values.map(value => String(value)));
+
+    Array.from(select.options).forEach(option => {
+      option.selected = valueSet.has(String(option.value));
+    });
+  }
+
+  function getDriverPickerOptionsForRender() {
+    const select = getTaskUserSelect();
+    if (!select) return [];
+
+    return Array.from(select.options || [])
+      .map(option => ({
+        value: String(option.value || ''),
+        label: String(option.textContent || '').trim()
+      }))
+      .filter(option => option.value && option.value !== 'none');
+  }
+
+  function updateDriverPickerLabel() {
+    const label = document.getElementById('taskDriverPickerLabel');
+    if (!label) return;
+
+    const values = getDriverPickerSelectedValues();
+    const options = getDriverPickerOptionsForRender();
+
+    if (!values.length || values.includes('all')) {
+      label.textContent = 'Visiems pagal instr. kalba';
+      return;
+    }
+
+    const selectedOptions = options.filter(option => values.includes(option.value));
+
+    if (selectedOptions.length === 1) {
+      label.textContent = selectedOptions[0].label;
+      return;
+    }
+
+    label.textContent = `Pasirinkta: ${selectedOptions.length}`;
+  }
+
+  function renderDriverPicker() {
+    const select = getTaskUserSelect();
+    const picker = ensureDriverPickerUi();
+
+    if (!select || !picker) return;
+
+    const taskType = taskTypeSelect?.value || 'standard';
+
+    if (taskType === 'loading_scheme' || select.disabled) {
+      picker.classList.add('hidden');
+      return;
+    }
+
+    picker.classList.remove('hidden');
+
+    const searchInput = document.getElementById('taskDriverPickerSearch');
+    const optionsBox = document.getElementById('taskDriverPickerOptions');
+    if (!optionsBox) return;
+
+    const search = String(searchInput?.value || '').trim().toLowerCase();
+    const selectedValues = getDriverPickerSelectedValues();
+    const options = getDriverPickerOptionsForRender();
+
+    const filteredOptions = options.filter(option => {
+      if (option.value === 'all') return true;
+      return !search || option.label.toLowerCase().includes(search);
+    });
+
+    if (!filteredOptions.length) {
+      optionsBox.innerHTML = `<div class="task-driver-picker-empty">Vairuotoju nerasta</div>`;
+      updateDriverPickerLabel();
+      return;
+    }
+
+    optionsBox.innerHTML = filteredOptions.map(option => {
+      const isAll = option.value === 'all';
+      const checked = selectedValues.includes(option.value) || (isAll && selectedValues.includes('all'));
+
+      return `
+        <div class="task-driver-picker-option ${isAll ? 'task-driver-picker-option-all' : ''}">
+          <label>
+            <input
+              type="checkbox"
+              class="task-driver-picker-checkbox"
+              data-value="${escapeHtml(option.value)}"
+              ${checked ? 'checked' : ''}
+            >
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    updateDriverPickerLabel();
+  }
+
+  function closeDriverPicker() {
+    document.getElementById('taskDriverPickerMenu')?.classList.add('hidden');
+  }
+
+  function toggleDriverPicker() {
+    const menu = document.getElementById('taskDriverPickerMenu');
+    if (!menu) return;
+
+    menu.classList.toggle('hidden');
+
+    if (!menu.classList.contains('hidden')) {
+      setTimeout(() => document.getElementById('taskDriverPickerSearch')?.focus(), 50);
+    }
+  }
+
+  document.addEventListener('click', event => {
+    const toggle = event.target.closest('#taskDriverPickerToggle');
+    const picker = event.target.closest('#taskDriverPicker');
+
+    if (toggle) {
+      toggleDriverPicker();
+      return;
+    }
+
+    if (!picker) {
+      closeDriverPicker();
+    }
+  });
+
+  document.addEventListener('input', event => {
+    if (event.target?.id === 'taskDriverPickerSearch') {
+      renderDriverPicker();
+    }
+  });
+
+  document.addEventListener('change', event => {
+    const checkbox = event.target.closest('.task-driver-picker-checkbox');
+    if (!checkbox) return;
+
+    const value = String(checkbox.dataset.value || '');
+    const currentValues = getDriverPickerSelectedValues().filter(item => item !== 'all');
+    const selected = new Set(currentValues);
+
+    if (value === 'all') {
+      setDriverPickerSelectedValues(['all']);
+      renderDriverPicker();
+      return;
+    }
+
+    if (checkbox.checked) {
+      selected.add(value);
+    } else {
+      selected.delete(value);
+    }
+
+    const newValues = selected.size ? Array.from(selected) : ['all'];
+    setDriverPickerSelectedValues(newValues);
+    renderDriverPicker();
+  });
+
   function fillTaskUsers() {
     const select = document.getElementById('taskUser');
     if (!select) return;
 
     if (!canCreate) {
       select.innerHTML = '';
+      renderDriverPicker();
       return;
     }
 
     const taskType = taskTypeSelect?.value || 'standard';
-    const currentValue = select.value || 'all';
+    const currentValues = getSelectedTaskUserValues();
 
     if (taskType === 'loading_scheme') {
-      select.innerHTML = `<option value="none">Neskiriama konkrečiam vairuotojui</option>`;
+      select.multiple = false;
+      select.size = 1;
+      select.innerHTML = `<option value="none">Neskiriama konkretiam vairuotojui</option>`;
       select.value = 'none';
       select.disabled = true;
+      renderDriverPicker();
       return;
     }
 
     select.disabled = false;
+    select.multiple = true;
+    select.size = 6;
 
-    const normalDrivers = drivers.filter(driver => driver.role === assignableDriverRole);
+    const normalDrivers = getLanguageFilteredDrivers();
 
     select.innerHTML =
-      `<option value="all">${tx('common.all_users', 'Visiems')}</option>` +
-      groups.map(group => `<option value="group:${group.id}">👥 ${escapeHtml(group.name)}</option>`).join('') +
-      normalDrivers.map(driver => `<option value="${driver.id}">${escapeHtml(driver.full_name || driver.email)}</option>`).join('');
+      `<option value="all">Visiems pagal instrukcijos kalba</option>` +
+      groups.map(group => `<option value="group:${group.id}">š‘ ${escapeHtml(group.name)}</option>`).join('') +
+      normalDrivers.map(driver => `<option value="${driver.id}">${escapeHtml(driver.full_name || driver.email)} (${escapeHtml(driver.lang || '-')})</option>`).join('');
 
-    if ([...select.options].some(opt => opt.value === currentValue)) {
-      select.value = currentValue;
-    }
+    const validValues = new Set(Array.from(select.options).map(option => option.value));
+    const restoredValues = currentValues.filter(value => validValues.has(value));
+    const valuesToSelect = restoredValues.length ? restoredValues : ['all'];
+
+    Array.from(select.options).forEach(option => {
+      option.selected = valuesToSelect.includes(option.value);
+    });
+
+    renderDriverPicker();
   }
     function fillTaskInstructionOptions() {
     if (!instrSelect) return;
@@ -567,7 +968,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     const selectedLang = instrLangSelect?.value || profile.lang || localStorage.getItem('lang') || 'lt';
 
     instrSelect.innerHTML =
-      `<option value="">${tx('common.select_instruction', 'Pasirink instrukciją')}</option>` +
+      `<option value="">${tx('common.select_instruction', 'Pasirink instrukcija')}</option>` +
       instructions
         .filter(item => item.lang === selectedLang && item.transport_mode === transportMode)
         .map(item => `<option value="${item.id}">${escapeHtml(item.title)}</option>`)
@@ -593,7 +994,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     });
 
     filterInstr.innerHTML =
-      `<option value="all">${tx('common.all_instructions', 'Visos instrukcijos')}</option>` +
+      `<option value="all">Visiems pagal instrukcijos kalba</option>` +
       [...instrMap.entries()].map(([id, title]) => `<option value="${id}">${escapeHtml(title)}</option>`).join('');
   }
 
@@ -1650,7 +2051,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       title: tx('tasks.approve_test', 'Patvirtinti testą'),
       message: `${tx('tasks.approve_test_confirm', 'Ar tikrai patvirtinti testą?')}\n\n${tx('tasks.task', 'Užduotis')}: ${task.title}`,
       confirmText: tx('tasks.next', 'Toliau'),
-      cancelText: tx('tasks.cancel', 'Atšaukti'),
+      cancelText: tx('tasks.cancel', 'Atsaukti'),
       type: 'success'
     });
 
@@ -1748,7 +2149,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
                 title: tx('tasks.test_completed_title', 'Testas išspręstas?'),
                 message: tx('tasks.test_completed_confirm', 'Patvirtink, kad testą jau išsprendei ir pateikei.'),
                 confirmText: tx('tasks.yes_submitted', 'Taip, pateikiau'),
-                cancelText: tx('tasks.cancel', 'Atšaukti'),
+                cancelText: tx('tasks.cancel', 'Atsaukti'),
                 type: 'success'
               });
 
@@ -1791,7 +2192,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
               title: tx('tasks.confirm_read_title', 'Patvirtinti susipažinimą'),
               message: tx('tasks.confirm_read_message', 'Ar tikrai patvirtinate, kad susipažinote su instrukcija?'),
               confirmText: tx('tasks.confirm', 'Patvirtinu'),
-              cancelText: tx('tasks.cancel', 'Atšaukti'),
+              cancelText: tx('tasks.cancel', 'Atsaukti'),
               type: 'success'
             });
 
@@ -1927,23 +2328,59 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     }
   });
 
-  document.getElementById('addTask')?.addEventListener('click', async () => {
+  function getSelectedTargetDrivers(selectedUserValues) {
+    const normalDrivers = getLanguageFilteredDrivers();
+
+    if (selectedUserValues.includes('all')) {
+      return {
+        targetDrivers: normalDrivers,
+        groupId: null
+      };
+    }
+
+    const selectedDriverIds = new Set();
+    const selectedGroupIds = [];
+
+    selectedUserValues.forEach(value => {
+      if (value.startsWith('group:')) {
+        selectedGroupIds.push(value.replace('group:', ''));
+        return;
+      }
+
+      selectedDriverIds.add(value);
+    });
+
+    selectedGroupIds.forEach(selectedGroupId => {
+      const group = groups.find(item => String(item.id) === String(selectedGroupId));
+
+      (group?.driverIds || []).forEach(driverId => {
+        selectedDriverIds.add(driverId);
+      });
+    });
+
+    return {
+      targetDrivers: normalDrivers.filter(driver => selectedDriverIds.has(driver.id)),
+      groupId: selectedGroupIds.length === 1 && selectedDriverIds.size === 0 ? selectedGroupIds[0] : null
+    };
+  }
+
+  async function createTask() {
     if (!canCreate) return;
 
     const title = document.getElementById('taskTitle')?.value?.trim() || '';
     const desc = document.getElementById('taskDesc')?.value?.trim() || '';
     const taskType = taskTypeSelect?.value || 'standard';
-    const selectedUser = document.getElementById('taskUser')?.value || 'all';
     const statusValue = document.getElementById('taskStatus')?.value || 'pending';
     const done = statusValue === 'done' || statusValue === 'completed';
     const instrId = document.getElementById('taskInstr')?.value || '';
-    const selectedInstr = instructions.find(item => String(item.id) === String(instrId));
+    const selectedInstr = getInstructionById(instrId);
+    const selectedUserValues = getSelectedTaskUserValues();
 
     if (!title) {
       showModal({
         type: 'error',
-        title: tx('tasks.missing_title_title', 'Trūksta pavadinimo'),
-        message: tx('tasks.task_title_placeholder', 'Įvesk užduoties pavadinimą')
+        title: tx('tasks.missing_title_title', 'Truksta pavadinimo'),
+        message: tx('tasks.task_title_placeholder', 'Ivesk uzduoties pavadinima')
       });
 
       return;
@@ -1953,7 +2390,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       showModal({
         type: 'error',
         title: tx('tasks.no_instruction_title', 'Nepasirinkta instrukcija'),
-        message: tx('common.select_instruction', 'Pasirink instrukciją')
+        message: tx('common.select_instruction', 'Pasirink instrukcija')
       });
 
       return;
@@ -1963,23 +2400,15 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     let groupId = null;
 
     if (taskType !== 'loading_scheme') {
-      const normalDrivers = drivers.filter(driver => driver.role === assignableDriverRole);
-
-      if (selectedUser === 'all') {
-        targetDrivers = normalDrivers;
-      } else if (selectedUser.startsWith('group:')) {
-        groupId = selectedUser.replace('group:', '');
-        const group = groups.find(item => String(item.id) === String(groupId));
-        targetDrivers = normalDrivers.filter(driver => group?.driverIds.includes(driver.id));
-      } else {
-        targetDrivers = normalDrivers.filter(driver => String(driver.id) === String(selectedUser));
-      }
+      const result = getSelectedTargetDrivers(selectedUserValues);
+      targetDrivers = result.targetDrivers;
+      groupId = result.groupId;
 
       if (!targetDrivers.length) {
         showModal({
           type: 'error',
-          title: tx('tasks.no_drivers_title', 'Nėra vairuotojų'),
-          message: tx('tasks.no_drivers_message', 'Nėra pasirinktų vairuotojų.')
+          title: tx('tasks.no_drivers_title', 'Nera vairuotoju'),
+          message: 'Nera pasirinktu vairuotoju arba pasirinktos instrukcijos kalbai nera aktyviu vairuotoju.'
         });
 
         return;
@@ -2035,7 +2464,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       showModal({
         type: 'error',
         title: tx('tasks.create_error_title', 'Nepavyko sukurti'),
-        message: tx('tasks.create_error_message', 'Nepavyko sukurti užduoties.')
+        message: tx('tasks.create_error_message', 'Nepavyko sukurti uzduoties.')
       });
 
       return;
@@ -2068,10 +2497,12 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
     showModal({
       type: 'success',
-      title: tx('tasks.created_title', 'Užduotis sukurta'),
-      message: tx('tasks.created_message', 'Užduotis sėkmingai priskirta.')
+      title: tx('tasks.created_title', 'Uzduotis sukurta'),
+      message: tx('tasks.created_message', 'Uzduotis sekmingai priskirta.')
     });
-  });
+  }
+
+  document.getElementById('addTask')?.addEventListener('click', createTask);
 
   [filterSearch, filterStatus, filterInstr]
     .filter(Boolean)
@@ -2081,13 +2512,54 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     });
 
   filterUserSearch?.addEventListener('input', render);
-  instrLangSelect?.addEventListener('change', fillTaskInstructionOptions);
+  instrLangSelect?.addEventListener('change', () => {
+    fillTaskInstructionOptions();
+    fillTaskUsers();
+  });
 
   taskTypeSelect?.addEventListener('change', () => {
     fillTaskUsers();
     fillTaskInstructionOptions();
   });
 
+  instrSelect?.addEventListener('change', fillTaskUsers);
+
+  document.addEventListener('click', async event => {
+    if (event.target?.id === 'deleteSelectedTasks') {
+      await deleteSelectedTasks();
+    }
+  });
+
+  document.addEventListener('change', event => {
+    const selectAll = event.target.closest('#selectAllTasks');
+
+    if (selectAll && role === 'admin') {
+      const visibleIds = getFilteredTasks().map(task => String(task.id));
+
+      if (selectAll.checked) {
+        visibleIds.forEach(id => selectedTaskIds.add(id));
+      } else {
+        visibleIds.forEach(id => selectedTaskIds.delete(id));
+      }
+
+      render();
+      return;
+    }
+
+    const checkbox = event.target.closest('.task-select-checkbox');
+
+    if (checkbox && role === 'admin') {
+      const id = checkbox.dataset.id;
+
+      if (checkbox.checked) {
+        selectedTaskIds.add(String(id));
+      } else {
+        selectedTaskIds.delete(String(id));
+      }
+
+      updateBulkDeleteButton();
+    }
+  });
   table.addEventListener('click', async event => {
     const loadingSchemeBtn = event.target.closest('.open-loading-scheme');
     const truckAcceptanceBtn = event.target.closest('.open-truck-acceptance');
@@ -2140,7 +2612,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
         title: tx('tasks.delete_title', 'Ištrinti užduotį'),
         message: `${tx('tasks.delete_confirm', 'Ar tikrai ištrinti užduotį?')}\n\n${task.title}`,
         confirmText: tx('tasks.delete', 'Trinti'),
-        cancelText: tx('tasks.cancel', 'Atšaukti'),
+        cancelText: tx('tasks.cancel', 'Atsaukti'),
         type: 'danger'
       });
 
@@ -2157,7 +2629,7 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
         showModal({
           type: 'error',
-          title: tx('tasks.delete_error_title', 'Nepavyko ištrinti'),
+          title: tx('tasks.delete_error_title', 'Nepavyko istrinti'),
           message: tx('tasks.delete_error_message', 'Nepavyko ištrinti užduoties.')
         });
 
@@ -2257,19 +2729,133 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     `;
   }
 
+  function ensureBulkActionsUi() {
+    if (role !== 'admin') return;
+
+    if (!document.getElementById('taskBulkActions')) {
+      const wrapper = document.createElement('div');
+      wrapper.id = 'taskBulkActions';
+      wrapper.className = 'bg-slate-900 p-4 rounded-xl border border-slate-700 mb-4 flex items-center justify-between gap-3 flex-wrap';
+
+      wrapper.innerHTML = `
+        <div class="text-sm text-slate-300">
+          Pazymeta: <span id="selectedTasksCount">0</span>
+        </div>
+
+        <button
+          id="deleteSelectedTasks"
+          type="button"
+          class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          disabled
+        >
+          Trinti pazymetas
+        </button>
+      `;
+
+      const tableBox = table.closest('.bg-slate-900');
+      tableBox?.parentElement?.insertBefore(wrapper, tableBox);
+    }
+
+    if (!document.getElementById('selectAllTasks')) {
+      const headRow = table.closest('table')?.querySelector('thead tr');
+
+      if (headRow) {
+        const th = document.createElement('th');
+        th.className = 'p-3 task-bulk-col w-10';
+        th.innerHTML = `<input id="selectAllTasks" type="checkbox" class="w-4 h-4">`;
+        headRow.insertBefore(th, headRow.firstElementChild);
+      }
+    }
+  }
+
+  function updateBulkDeleteButton() {
+    const count = selectedTaskIds.size;
+    const countEl = document.getElementById('selectedTasksCount');
+    const deleteBtn = document.getElementById('deleteSelectedTasks');
+    const selectAll = document.getElementById('selectAllTasks');
+
+    if (countEl) countEl.textContent = String(count);
+    if (deleteBtn) deleteBtn.disabled = count === 0;
+
+    if (selectAll) {
+      const visibleIds = getFilteredTasks().map(task => String(task.id));
+      const visibleSelected = visibleIds.filter(id => selectedTaskIds.has(id));
+
+      selectAll.checked = visibleIds.length > 0 && visibleSelected.length === visibleIds.length;
+      selectAll.indeterminate = visibleSelected.length > 0 && visibleSelected.length < visibleIds.length;
+    }
+  }
+
+  function getTableColspan() {
+    let count = 4;
+
+    if (!isDriverRole) count += 1;
+    if (role === 'admin') count += 1;
+
+    return count;
+  }
+
+  async function deleteSelectedTasks() {
+    if (role !== 'admin') return;
+
+    const ids = Array.from(selectedTaskIds);
+    if (!ids.length) return;
+
+    const confirmed = await confirmModal({
+      title: 'Trinti pazymetas uzduotis',
+      message: `Ar tikrai istrinti pazymetas uzduotis?\n\nKiekis: ${ids.length}`,
+      confirmText: tx('tasks.delete', 'Trinti'),
+      cancelText: tx('tasks.cancel', 'Atsaukti'),
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .in('id', ids)
+      .eq('transport_mode', transportMode);
+
+    if (error) {
+      console.error('Bulk task delete error:', error);
+
+      showModal({
+        type: 'error',
+        title: tx('tasks.delete_error_title', 'Nepavyko istrinti'),
+        message: 'Nepavyko istrinti pazymetu uzduociu.'
+      });
+
+      return;
+    }
+
+    selectedTaskIds.clear();
+
+    await loadTasks();
+    initFilters();
+    render();
+  }
+
   function render() {
     updateStats();
+    ensureBulkActionsUi();
 
     const list = getFilteredTasks();
+
+    const visibleTaskIds = new Set(tasks.map(task => String(task.id)));
+    selectedTaskIds = new Set([...selectedTaskIds].filter(id => visibleTaskIds.has(id)));
 
     if (!list.length) {
       table.innerHTML = `
         <tr>
-          <td colspan="${isDriverRole ? 4 : 5}" class="p-4 text-slate-400">
-            ${tx('tasks.no_tasks', 'Nėra užduočių')}
+          ${role === 'admin' ? '<td class="p-3 task-bulk-col"></td>' : ''}
+          <td colspan="${getTableColspan()}" class="p-4 text-slate-400">
+            ${tx('tasks.no_tasks', 'Nera uzduociu')}
           </td>
         </tr>
       `;
+
+      updateBulkDeleteButton();
       return;
     }
 
@@ -2280,6 +2866,17 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
       return `
         <tr class="border-t border-slate-700 align-top">
+          ${role === 'admin' ? `
+            <td class="p-3 task-bulk-col">
+              <input
+                type="checkbox"
+                class="task-select-checkbox w-4 h-4"
+                data-id="${task.id}"
+                ${selectedTaskIds.has(String(task.id)) ? 'checked' : ''}
+              >
+            </td>
+          ` : ''}
+
           <td class="p-3">
             <div class="font-semibold">${escapeHtml(task.title)}</div>
             <div class="text-slate-400 text-xs whitespace-pre-line">${escapeHtml(task.desc || '')}</div>
@@ -2303,6 +2900,8 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
         </tr>
       `;
     }).join('');
+
+    updateBulkDeleteButton();
   }
 
   await reloadAll();
