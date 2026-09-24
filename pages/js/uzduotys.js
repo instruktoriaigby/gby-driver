@@ -1986,20 +1986,1256 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
     instructionModalFooter.innerHTML = '';
 
-    if (canApprove) {
-      instructionModalFooter.innerHTML = `
+    const effectiveReviewStatus = String(
+      review?.status ||
+      report?.status ||
+      task.status ||
+      'pending'
+    ).toLowerCase();
+
+    const reviewLocked = ['approved', 'needs_changes', 'rejected', 'done'].includes(effectiveReviewStatus);
+
+    const reviewStatusLabel =
+      effectiveReviewStatus === 'approved' || effectiveReviewStatus === 'done'
+        ? 'Patvirtinta'
+        : effectiveReviewStatus === 'needs_changes'
+          ? 'Grazinta taisymui'
+          : effectiveReviewStatus === 'rejected'
+            ? 'Atmesta'
+            : 'Laukia sprendimo';
+
+    const reviewStatusClass =
+      effectiveReviewStatus === 'approved' || effectiveReviewStatus === 'done'
+        ? 'text-green-400'
+        : effectiveReviewStatus === 'needs_changes'
+          ? 'text-yellow-400'
+          : effectiveReviewStatus === 'rejected'
+            ? 'text-red-400'
+            : 'text-slate-300';
+
+    if (reviewLocked) {
+      document.getElementById('truckAcceptanceComment')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionDriverInstruction')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionService')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionBonus')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionNoAction')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionCarWash')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionInventoryNeeded')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionWorkClothesNeeded')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionOther')?.setAttribute('disabled', 'disabled');
+      document.getElementById('taActionOtherText')?.setAttribute('disabled', 'disabled');
+    }
+
+    instructionModalFooter.innerHTML = `
+      <button type="button" class="truck-acceptance-pdf bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl">
+        PDF
+      </button>
+
+      ${reviewLocked ? `
+        <div class="${reviewStatusClass} px-4 py-2 font-semibold">
+          Sprendimas: ${escapeHtml(reviewStatusLabel)}
+        </div>
+      ` : ''}
+    `;
+
+    instructionModalFooter.querySelector('.truck-acceptance-pdf')?.addEventListener('click', () => {
+      const printWindow = window.open('', '_blank');
+
+      if (!printWindow) {
+        showModal({
+          type: 'error',
+          title: 'PDF klaida',
+          message: 'Narsykle uzblokavo nauja langa. Leiskite popup langus ir bandykite dar karta.'
+        });
+        return;
+      }
+
+      function pdfEscape(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function pdfValue(value) {
+        if (value === null || value === undefined || value === '') return '-';
+        return pdfEscape(value);
+      }
+
+      function pdfPressure(value) {
+        if (value === null || value === undefined || value === '') return '-';
+        return `${pdfEscape(value)} bar`;
+      }
+      function pdfQualityClass(value) {
+        const raw = String(value || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+
+        if (raw === 'blokas') return 'qr-block';
+        if (raw === 'ispejimas') return 'qr-warning';
+        if (raw === 'gerai') return 'qr-good';
+        if (raw === 'puikiai') return 'qr-excellent';
+
+        return 'qr-neutral';
+      }
+
+      function pdfQuality(label, value) {
+        const result = q(value);
+
+        return `
+          <tr>
+            <td>${pdfEscape(label)}</td>
+            <td>
+              <span class="quality-result-badge ${pdfQualityClass(result)}">
+                ${pdfEscape(result)}
+              </span>
+            </td>
+          </tr>
+        `;
+      }
+      const actionItems = [
+        {
+          label: 'Vairuotojo instruktavimas',
+          active: review?.action_driver_instruction || document.getElementById('taActionDriverInstruction')?.checked
+        },
+        {
+          label: 'Servisas',
+          active: review?.action_service || document.getElementById('taActionService')?.checked
+        },
+        {
+          label: 'Premija',
+          active: review?.action_bonus || document.getElementById('taActionBonus')?.checked
+        },
+        {
+          label: 'Jokiu veiksmu nereikia',
+          active: review?.action_no_action || document.getElementById('taActionNoAction')?.checked
+        },
+        {
+          label: 'Plovykla',
+          active: review?.action_car_wash || document.getElementById('taActionCarWash')?.checked
+        },
+        {
+          label: 'Reikalingas inventorius',
+          active: review?.action_inventory_needed || document.getElementById('taActionInventoryNeeded')?.checked
+        },
+        {
+          label: 'Reikalingi darbo rubai',
+          active: review?.action_work_clothes_needed || document.getElementById('taActionWorkClothesNeeded')?.checked
+        },
+        {
+          label: 'Kita',
+          active: review?.action_other || document.getElementById('taActionOther')?.checked
+        }
+      ];
+
+      const otherText =
+        review?.action_other_text ||
+        document.getElementById('taActionOtherText')?.value?.trim() ||
+        '';
+
+      const comment =
+        review?.instructor_comment ||
+        document.getElementById('truckAcceptanceComment')?.value?.trim() ||
+        '';
+
+      const selectedActions = actionItems.filter(item => item.active);
+
+      const actionsHtml = selectedActions.length
+        ? selectedActions.map(item => {
+            const text = item.label === 'Kita' && otherText
+              ? `${item.label}: ${otherText}`
+              : item.label;
+
+            return `<span class="action-chip">${pdfEscape(text)}</span>`;
+          }).join('')
+        : '<div class="muted">Rekomendaciju nepazymeta.</div>';
+
+      const photoLabels = {
+        platform: 'Platforma',
+        platform_order: 'Tvarka ant platformos',
+        safety_fences: 'Apsaugines tvoros',
+        straps: 'Tvirtinimo dirzai',
+        work_inventory: 'Darbo inventorius',
+        fastening: 'Tvirtinimas',
+        windshield: 'Priekinis stiklas',
+        lights: 'Zibintai',
+        exterior: 'Isorine svara',
+        additional_1: 'Papildoma 1',
+        additional_2: 'Papildoma 2',
+        additional_3: 'Papildoma 3',
+        additional_4: 'Papildoma 4',
+        additional_5: 'Papildoma 5',
+        additional_6: 'Papildoma 6'
+      };
+
+      const photosHtml = (photos || []).length
+        ? (photos || []).map(photo => {
+            const url = getTruckAcceptancePhotoUrl(photo.file_path);
+            const label = photoLabels[photo.category] || photo.category || 'Nuotrauka';
+
+            return `
+              <div class="photo-card">
+                <img src="${pdfEscape(url)}" alt="">
+                <div>${pdfEscape(label)}</div>
+              </div>
+            `;
+          }).join('')
+        : '<div class="muted">Nuotrauku nera.</div>';
+
+      const qualityTableRows = isTruckReport
+        ? [
+            pdfQuality('Puspriekabes bukle', report.semi_trailer_condition),
+            pdfQuality('Tvirtinimo dirzai', report.straps_condition),
+            pdfQuality('Kitas inventorius', report.work_inventory_condition),
+            pdfQuality('Tvirtinimas', report.fastening_condition),
+            pdfQuality(exteriorCleanlinessLabel, report.truck_exterior_cleanliness),
+            pdfQuality('Priekinis stiklas', report.windshield_condition),
+            pdfQuality('Zibintai', report.lights_condition)
+          ].join('')
+        : [
+            pdfQuality('Platformos bukle', report.platform_condition),
+            pdfQuality('Tvarka ant platformos', report.platform_order),
+            pdfQuality('Apsauginiu tvoru bukle', report.safety_fences_condition),
+            pdfQuality('Tvirtinimo dirzai', report.straps_condition),
+            pdfQuality('Kitas inventorius', report.work_inventory_condition),
+            pdfQuality('Tvirtinimas', report.fastening_condition),
+            pdfQuality(exteriorCleanlinessLabel, report.exterior_cleanliness),
+            pdfQuality('Priekinis stiklas', report.windshield_condition),
+            pdfQuality('Zibintai', report.lights_condition)
+          ].join('');
+
+      const logoUrl = new URL('Logo_GBY.jpg', window.location.href).href;
+
+      const title = 'Vilkiko priemimo ataskaita';
+
+      const html = `
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${pdfEscape(title)}</title>
+
+            <style>
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                font-family: Arial, sans-serif;
+                color: #111827;
+                background: #ffffff;
+                margin: 0;
+                padding: 0;
+                font-size: 12px;
+                line-height: 1.45;
+              }
+              @page {
+                size: A4;
+                margin: 12mm 12mm 14mm 12mm;
+              }
+
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                font-family: Arial, sans-serif;
+                color: #111827;
+                background: #ffffff;
+                margin: 0;
+                padding: 0;
+                font-size: 12px;
+                line-height: 1.42;
+              }
+
+              .page {
+                width: 100%;
+                padding: 0;
+                margin: 0;
+              }
+
+              .gby-header {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                align-items: start;
+                gap: 18px;
+                margin-bottom: 18px;
+                min-height: 42px;
+              }
+
+              .gby-header-line {
+                border-bottom: 1px solid #cbd5e1;
+                height: 28px;
+              }
+
+              .gby-logo-img {
+                width: 118px;
+                height: auto;
+                display: block;
+                object-fit: contain;
+              }
+
+              .content-wrap {
+                clear: both;
+              }
+
+              h1 {
+                font-size: 22px;
+                margin: 0 0 18px;
+                color: #111827;
+              }
+
+              h2 {
+                font-size: 15px;
+                margin: 22px 0 10px;
+                padding-bottom: 5px;
+                border-bottom: 1px solid #d1d5db;
+                color: #111827;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 14px;
+                table-layout: fixed;
+                
+              }
+
+              td,
+              th {
+                border: 1px solid #d1d5db;
+                padding: 7px 8px;
+                vertical-align: top;
+                word-break: normal;
+                overflow-wrap: anywhere;
+              }
+
+              th {
+                background: #f3f4f6;
+                text-align: left;
+                font-weight: 700;
+              }
+
+              .summary-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 14px;
+              }
+
+              .box {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 10px;
+                background: #ffffff;
+                page-break-inside: avoid;
+              }
+
+              .label {
+                color: #6b7280;
+                font-size: 11px;
+                margin-bottom: 3px;
+              }
+
+              .value {
+                font-size: 14px;
+                font-weight: 700;
+              }
+
+              .decision-box {
+                border: 2px solid #111827;
+                border-radius: 10px;
+                padding: 12px;
+                margin-top: 8px;
+                background: #ffffff;
+                page-break-inside: avoid;
+              }
+
+              .decision-row {
+                display: grid;
+                grid-template-columns: 150px 1fr;
+                gap: 10px;
+                margin-bottom: 8px;
+              }
+
+              .action-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 7px;
+                margin-top: 6px;
+              }
+
+              .action-chip {
+                display: inline-block;
+                border: 1px solid #2563eb;
+                background: #eff6ff;
+                color: #1e3a8a;
+                border-radius: 999px;
+                padding: 5px 10px;
+                font-weight: 700;
+              }
+
+              .comment {
+                white-space: pre-line;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 9px;
+                min-height: 44px;
+                background: #ffffff;
+              }
+
+              .photo-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+              }
+
+              .photo-card {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 6px;
+                page-break-inside: avoid;
+                background: #ffffff;
+              }
+
+              .photo-card img {
+                display: block;
+                width: 100%;
+                max-height: 170px;
+                object-fit: contain;
+                border-radius: 6px;
+                background: #f3f4f6;
+              }
+
+              .photo-card div {
+                margin-top: 4px;
+                font-size: 11px;
+                color: #374151;
+              }
+
+              .muted {
+                color: #6b7280;
+              }
+
+              .generated-footer {
+                margin-top: 24px;
+                page-break-inside: avoid;
+              }
+
+              .gby-www {
+                text-align: right;
+                font-size: 10px;
+                font-weight: 700;
+                margin-bottom: 4px;
+              }
+
+              .gby-footer {
+                display: grid;
+                grid-template-columns: 1.05fr 1.45fr 1.15fr 1.55fr;
+                border: 1px solid #cbd5e1;
+                font-size: 9.5px;
+                line-height: 1.25;
+                background: #ffffff;
+              }
+
+              .gby-footer-cell {
+                padding: 7px 8px;
+                border-right: 1px solid #cbd5e1;
+                min-height: 42px;
+              }
+
+              .gby-footer-cell:last-child {
+                border-right: none;
+              }
+
+              .gby-footer-title {
+                font-weight: 800;
+                font-size: 13px;
+                font-style: italic;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #f3f4f6;
+              }
+
+              .gby-footer-cell.dark {
+                font-weight: 700;
+                background: #f9fafb;
+              }
+
+              .system-footer {
+                margin-top: 8px;
+                padding-top: 6px;
+                border-top: 1px solid #e5e7eb;
+                font-size: 10px;
+                color: #6b7280;
+                display: flex;
+                justify-content: space-between;
+              }
+              .gby-footer {
+                width: 100%;
+                display: grid;
+                grid-template-columns: 28mm 1.45fr 1.15fr 1.65fr;
+                border: 1px solid #cbd5e1;
+                background: #ffffff;
+                font-size: 9.5px;
+                line-height: 1.22;
+                margin-top: 4px;
+                page-break-inside: avoid;
+              }
+
+              .gby-footer-cell {
+                padding: 6px 8px;
+                border-right: 1px solid #cbd5e1;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 20mm;
+                min-width: 0;
+                overflow: hidden;
+              }
+
+              .gby-footer-cell:last-child {
+                border-right: none;
+              }
+
+              .gby-footer-title {
+                font-weight: 800;
+                font-style: italic;
+                font-size: 13px;
+                text-align: center;
+                align-items: center;
+                background: #f8fafc;
+              }
+
+              .gby-footer-cell.dark {
+                font-weight: 700;
+                background: #f8fafc;
+              }
+
+              .gby-www {
+                border-top: 1px solid #cbd5e1;
+                padding-top: 5px;
+                margin-top: 22px;
+                text-align: left;
+                font-size: 9.5px;
+                font-weight: 700;
+                color: #111827;
+              }
+
+              .generated-footer {
+                margin-top: 24px;
+                page-break-inside: avoid;
+              }
+
+              .system-footer {
+                display: none !important;
+              }
+              .quality-section {
+                page-break-inside: avoid;
+                break-inside: avoid-page;
+                margin-top: 18px;
+              }
+
+              .quality-section h2 {
+                page-break-after: avoid;
+                break-after: avoid-page;
+                margin-bottom: 8px;
+              }
+
+              .quality-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                
+                break-inside: avoid-page;
+              
+                page-break-inside: avoid;
+                break-inside: avoid-page;
+              }
+
+              .quality-table thead {
+                display: table-header-group;
+              }
+
+              .quality-table tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+
+              .quality-table th,
+              .quality-table td {
+                border: 1px solid #cbd5e1;
+                padding: 7px 8px;
+                vertical-align: middle;
+                font-size: 12px;
+              }
+
+              .quality-result-badge {
+                display: inline-block;
+                min-width: 72px;
+                text-align: center;
+                padding: 3px 9px;
+                border-radius: 999px;
+                font-weight: 700;
+                line-height: 1.2;
+                border: 1px solid #cbd5e1;
+                background: #f8fafc;
+                color: #111827;
+              }
+
+              .qr-block {
+                color: #991b1b;
+                background: #fee2e2;
+                border-color: #fecaca;
+              }
+
+              .qr-warning {
+                color: #c2410c;
+                background: #ffedd5;
+                border-color: #fdba74;
+              }
+
+              .qr-good {
+                color: #166534;
+                background: #dcfce7;
+                border-color: #86efac;
+              }
+
+              .qr-excellent {
+                color: #064e3b;
+                background: #a7f3d0;
+                border-color: #34d399;
+              }
+
+              .qr-neutral {
+                color: #374151;
+                background: #f3f4f6;
+                border-color: #d1d5db;
+              }
+              @page {
+                size: A4;
+                margin: 12mm 12mm 38mm 12mm;
+              }
+
+              .page {
+                padding-bottom: 8mm !important;
+              }
+
+              .generated-footer {
+                position: fixed !important;
+                left: 12mm !important;
+                right: 12mm !important;
+                bottom: 2mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                z-index: 9999 !important;
+                page-break-inside: avoid !important;
+              }
+
+              .gby-footer {
+                width: 100%;
+                display: grid;
+                grid-template-columns: 28mm 1.45fr 1.15fr 1.65fr;
+                border: 1px solid #cbd5e1;
+                background: #ffffff;
+                font-size: 9.5px;
+                line-height: 1.22;
+                margin: 0;
+                page-break-inside: avoid;
+              }
+
+              .gby-footer-cell {
+                padding: 6px 8px;
+                border-right: 1px solid #cbd5e1;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 20mm;
+                min-width: 0;
+                overflow: hidden;
+              }
+
+              .gby-footer-cell:last-child {
+                border-right: none;
+              }
+
+              .gby-footer-title {
+                font-weight: 800;
+                font-style: italic;
+                font-size: 13px;
+                text-align: center;
+                align-items: center;
+                background: #f8fafc;
+              }
+
+              .gby-footer-cell.dark {
+                font-weight: 700;
+                background: #f8fafc;
+              }
+
+              .gby-www {
+                display: none !important;
+              }
+
+              .system-footer {
+                display: none !important;
+              }
+
+              #gbyFixedFooter { position: fixed !important; bottom: 0mm !important; left: 12mm !important; right: 12mm !important; }
+              @media print {
+                body {
+                  margin: 0;
+                }
+
+                .page {
+                  padding: 0;
+                }
+
+                .photo-card,
+                .box,
+                table,
+                .decision-box,
+                .generated-footer {
+                  page-break-inside: avoid;
+                }
+              }
+              h1 {
+                font-size: 22px;
+                margin: 0 0 18px;
+                color: #111827;
+              }
+
+              h2 {
+                font-size: 15px;
+                margin: 22px 0 10px;
+                padding-bottom: 5px;
+                border-bottom: 1px solid #d1d5db;
+                color: #111827;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 10px;
+              }
+
+              td,
+              th {
+                border: 1px solid #d1d5db;
+                padding: 7px 8px;
+                vertical-align: top;
+              }
+
+              th {
+                background: #f3f4f6;
+                text-align: left;
+                font-weight: 700;
+              }
+
+              .summary-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 14px;
+              }
+
+              .box {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 10px;
+                background: #ffffff;
+              }
+
+              .label {
+                color: #6b7280;
+                font-size: 11px;
+                margin-bottom: 3px;
+              }
+
+              .value {
+                font-size: 14px;
+                font-weight: 700;
+              }
+
+              .decision-box {
+                border: 2px solid #111827;
+                border-radius: 10px;
+                padding: 12px;
+                margin-top: 8px;
+                background: #f9fafb;
+              }
+
+              .decision-row {
+                display: grid;
+                grid-template-columns: 160px 1fr;
+                gap: 10px;
+                margin-bottom: 8px;
+              }
+
+              .action-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 7px;
+                margin-top: 6px;
+              }
+
+              .action-chip {
+                display: inline-block;
+                border: 1px solid #2563eb;
+                background: #eff6ff;
+                color: #1e3a8a;
+                border-radius: 999px;
+                padding: 5px 10px;
+                font-weight: 700;
+              }
+
+              .comment {
+                white-space: pre-line;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 9px;
+                min-height: 44px;
+                background: #ffffff;
+              }
+
+              .photo-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+              }
+
+              .photo-card {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 6px;
+                page-break-inside: avoid;
+              }
+
+              .photo-card img {
+                display: block;
+                width: 100%;
+                max-height: 170px;
+                object-fit: contain;
+                border-radius: 6px;
+                background: #f3f4f6;
+              }
+
+              .photo-card div {
+                margin-top: 4px;
+                font-size: 11px;
+                color: #374151;
+              }
+
+              .muted {
+                color: #6b7280;
+              }
+
+              .generated-footer {
+                margin-top: 24px;
+                margin-bottom: 8mm;
+                padding-top: 8px;
+                border-top: 1px solid #d1d5db;
+                font-size: 10px;
+                color: #6b7280;
+                display: flex;
+                justify-content: space-between;
+              }
+
+              .generated-footer {
+                margin-top: 24px;
+                padding-top: 10px;
+                border-top: 1px solid #d1d5db;
+                font-size: 10px;
+                color: #6b7280;
+                display: flex;
+                justify-content: space-between;
+              }
+              @page {
+                size: A4;
+                margin: 12mm 12mm 38mm 12mm;
+              }
+
+              .page {
+                padding-bottom: 8mm !important;
+              }
+
+              .generated-footer {
+                position: fixed !important;
+                left: 12mm !important;
+                right: 12mm !important;
+                bottom: 2mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                z-index: 9999 !important;
+                page-break-inside: avoid !important;
+              }
+
+              .gby-footer {
+                width: 100%;
+                display: grid;
+                grid-template-columns: 28mm 1.45fr 1.15fr 1.65fr;
+                border: 1px solid #cbd5e1;
+                background: #ffffff;
+                font-size: 9.5px;
+                line-height: 1.22;
+                margin: 0;
+                page-break-inside: avoid;
+              }
+
+              .gby-footer-cell {
+                padding: 6px 8px;
+                border-right: 1px solid #cbd5e1;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 20mm;
+                min-width: 0;
+                overflow: hidden;
+              }
+
+              .gby-footer-cell:last-child {
+                border-right: none;
+              }
+
+              .gby-footer-title {
+                font-weight: 800;
+                font-style: italic;
+                font-size: 13px;
+                text-align: center;
+                align-items: center;
+                background: #f8fafc;
+              }
+
+              .gby-footer-cell.dark {
+                font-weight: 700;
+                background: #f8fafc;
+              }
+
+              .gby-www {
+                display: none !important;
+              }
+
+              .system-footer {
+                display: none !important;
+              }
+
+              #gbyFixedFooter { position: fixed !important; bottom: 0mm !important; left: 12mm !important; right: 12mm !important; }
+              @media print {
+                .page {
+                  padding: 16mm 14mm;
+                }
+
+                .photo-card,
+                .box,
+                table,
+                .decision-box {
+                  page-break-inside: avoid;
+                }
+              }
+            </style>
+          </head>
+
+          <body>
+            <div class="page">
+                            <div class="gby-header">
+                <div class="gby-header-line"></div>
+                <img src="${pdfEscape(logoUrl)}" alt="GBY" class="gby-logo-img">
+              </div>
+
+              <div class="content-wrap">
+<h1>${pdfEscape(title)}</h1>
+
+              <div class="summary-grid">
+                <div class="box">
+                  <div class="label">Data</div>
+                  <div class="value">${pdfValue(report.report_date)}</div>
+                </div>
+
+                <div class="box">
+                  <div class="label">Vairuotojas</div>
+                  <div class="value">${pdfValue(report.driver_name)}</div>
+                </div>
+
+                <div class="box">
+                  <div class="label">Vilkiko numeris</div>
+                  <div class="value">${pdfValue(report.truck_number)}</div>
+                </div>
+
+                <div class="box">
+                  <div class="label">${pdfEscape(trailerTypeLabel)}</div>
+                  <div class="value">${pdfValue(report.trailer_type)}</div>
+                </div>
+              </div>
+
+              <h2>Padangu slegio ivertinimas</h2>
+              <table>
+                <tr>
+                  <th>Pozicija</th>
+                  <th>Slegis</th>
+                  <th>Pozicija</th>
+                  <th>Slegis</th>
+                </tr>
+                <tr>
+                  <td>Priekine kaire</td>
+                  <td>${pdfPressure(report.front_left_pressure)}</td>
+                  <td>Priekine desine</td>
+                  <td>${pdfPressure(report.front_right_pressure)}</td>
+                </tr>
+                <tr>
+                  <td>Tinginys kaire</td>
+                  <td>${pdfPressure(report.lazy_left_pressure)}</td>
+                  <td>Tinginys desine</td>
+                  <td>${pdfPressure(report.lazy_right_pressure)}</td>
+                </tr>
+                <tr>
+                  <td>Varomoji isorine kaire</td>
+                  <td>${pdfPressure(report.drive_outer_left_pressure)}</td>
+                  <td>Varomoji vidine kaire</td>
+                  <td>${pdfPressure(report.drive_inner_left_pressure)}</td>
+                </tr>
+                <tr>
+                  <td>Varomoji vidine desine</td>
+                  <td>${pdfPressure(report.drive_inner_right_pressure)}</td>
+                  <td>Varomoji isorine desine</td>
+                  <td>${pdfPressure(report.drive_outer_right_pressure)}</td>
+                </tr>
+              </table>
+
+              <h2>Priekabos asys</h2>
+              <table>
+                <tr>
+                  <th>Asis</th>
+                  <th>Tipas</th>
+                  <th>Isorine kaire</th>
+                  <th>Vidine kaire</th>
+                  <th>Vidine desine</th>
+                  <th>Isorine desine</th>
+                </tr>
+                <tr>
+                  <td>1</td>
+                  <td>${pdfValue(report.trailer_axle_1_type)}</td>
+                  <td>${pdfPressure(report.trailer_axle_1_left_outer)}</td>
+                  <td>${pdfPressure(report.trailer_axle_1_left_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_1_right_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_1_right_outer)}</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>${pdfValue(report.trailer_axle_2_type)}</td>
+                  <td>${pdfPressure(report.trailer_axle_2_left_outer)}</td>
+                  <td>${pdfPressure(report.trailer_axle_2_left_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_2_right_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_2_right_outer)}</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>${pdfValue(report.trailer_axle_3_type)}</td>
+                  <td>${pdfPressure(report.trailer_axle_3_left_outer)}</td>
+                  <td>${pdfPressure(report.trailer_axle_3_left_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_3_right_inner)}</td>
+                  <td>${pdfPressure(report.trailer_axle_3_right_outer)}</td>
+                </tr>
+              </table>
+              <div class="quality-section">
+                <h2>Kokybes ivertinimas</h2>
+
+                <table class="quality-table">
+                  <thead>
+                    <tr>
+                      <th>Vertinimo vieta</th>
+                      <th>Rezultatas</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    ${qualityTableRows}
+                  </tbody>
+                </table>
+              </div>
+
+              <h2>Pastabos</h2>
+              <div class="comment">${pdfValue(report.notes)}</div>
+
+              <h2>Instruktoriaus sprendimas ir rekomendacijos</h2>
+              <div class="decision-box">
+                <div class="decision-row">
+                  <b>Sprendimas</b>
+                  <div>${pdfEscape(reviewStatusLabel)}</div>
+                </div>
+
+                <div class="decision-row">
+                  <b>Komentaras</b>
+                  <div class="comment">${comment ? pdfEscape(comment) : '-'}</div>
+                </div>
+
+                <div>
+                  <b>Rekomendacijos / veiksmai</b>
+                  <div class="action-list">
+                    ${actionsHtml}
+                  </div>
+                </div>
+              </div>
+
+              <h2>Nuotraukos</h2>
+              <div class="photo-grid">
+                ${photosHtml}
+              </div>
+
+                            <div class="generated-footer">
+                <div class="gby-footer">
+                  <div class="gby-footer-cell gby-footer-title">UAB "GBY"</div>
+
+                  <div class="gby-footer-cell">
+                    Pramones g. 30-4, LT-72320 Taurage<br>
+                    +370 678 30967 / info@gby.lt
+                  </div>
+
+                  <div class="gby-footer-cell dark">
+                    Imones kodas: <span style="font-weight:400">179435940</span><br>
+                    PVM mok. kodas: <span style="font-weight:400">LT794359418</span>
+                  </div>
+
+                  <div class="gby-footer-cell">
+                    <b>A/s (IBAN):</b> LT97 4010 0510 0340 1216<br>
+                    <b>Bankas:</b> Luminor Bank AS Lietuvos skyrius<br>
+                    <b>SWIFT kodas:</b> AGBLLT2X
+                  </div>
+                </div>
+
+                <div class="system-footer">
+                  <div>Dokumentas sugeneruotas GBY sistemoje</div>
+                  <div>${new Date().toLocaleString('lt-LT')}</div>
+                </div>
+              </div>
+            </div>
+                        <div
+                id="gbyFixedFooter"
+                style="
+                  position: fixed !important;
+                  left: 12mm !important;
+                  right: 12mm !important;
+                  bottom: 0mm !important;
+                  height: 22mm !important;
+                  background: #ffffff !important;
+                  z-index: 999999 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  box-sizing: border-box !important;
+                "
+              >
+                <div
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    display: grid;
+                    grid-template-columns: 30mm 1.45fr 1.15fr 1.65fr;
+                    border: 1px solid #cbd5e1;
+                    background: #ffffff;
+                    font-size: 9.5px;
+                    line-height: 1.22;
+                    box-sizing: border-box;
+                  "
+                >
+                  <div
+                    style="
+                      padding: 6px 8px;
+                      border-right: 1px solid #cbd5e1;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-weight: 800;
+                      font-style: italic;
+                      font-size: 13px;
+                      background: #f8fafc;
+                      box-sizing: border-box;
+                    "
+                  >
+                    UAB<br>"GBY"
+                  </div>
+
+                  <div
+                    style="
+                      padding: 6px 8px;
+                      border-right: 1px solid #cbd5e1;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: center;
+                      box-sizing: border-box;
+                    "
+                  >
+                    <div>Pramones g. 30-4, LT-72320 Taurage</div>
+                    <div>+370 678 30967 / info@gby.lt</div>
+                  </div>
+
+                  <div
+                    style="
+                      padding: 6px 8px;
+                      border-right: 1px solid #cbd5e1;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: center;
+                      font-weight: 700;
+                      background: #f8fafc;
+                      box-sizing: border-box;
+                    "
+                  >
+                    <div>Imones kodas: <span style="font-weight:400">179435940</span></div>
+                    <div>PVM mok. kodas: <span style="font-weight:400">LT794359418</span></div>
+                  </div>
+
+                  <div
+                    style="
+                      padding: 6px 8px;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: center;
+                      box-sizing: border-box;
+                    "
+                  >
+                    <div><b>A/s (IBAN):</b> LT97 4010 0510 0340 1216</div>
+                    <div><b>Bankas:</b> Luminor Bank AS Lietuvos skyrius</div>
+                    <div><b>SWIFT kodas:</b> AGBLLT2X</div>
+                  </div>
+                </div>
+              </div>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 600);
+    });
+
+    if (canApprove && !reviewLocked) {
+      instructionModalFooter.insertAdjacentHTML('beforeend', `
         <button type="button" class="truck-acceptance-approve bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl">
           ${tx('truck_acceptance.approve', 'Patvirtinti')}
         </button>
 
         <button type="button" class="truck-acceptance-return bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-xl">
-          ${tx('truck_acceptance.return_for_fix', 'Grąžinti taisymui')}
+          ${tx('truck_acceptance.return_for_fix', 'Grazinti taisymui')}
         </button>
 
         <button type="button" class="truck-acceptance-reject bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl">
           ${tx('truck_acceptance.reject', 'Atmesti')}
         </button>
-      `;
+      `);
 
       instructionModalFooter.querySelector('.truck-acceptance-approve')?.addEventListener('click', async () => {
         const ok = await saveTruckAcceptanceDecision(task, 'approved');
