@@ -209,7 +209,7 @@
         <label class="block mb-1" data-i18n="app.explanation">Paaiškinimas</label>
 
         <div class="space-y-3">
-          <div>
+          <div data-transport-mode="car_transporter">
             <label class="block mb-1 text-sm text-slate-400" data-i18n="app.vin_number">VIN</label>
             <input
               name="vin_number"
@@ -233,7 +233,7 @@
       <!-- FOTO BLOKAI -->
       <div class="space-y-6">
 
-        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="vin">
+        <div class="photo-block bg-slate-900/50 p-4 rounded-xl border border-slate-800" data-photo-block="vin" data-transport-mode="car_transporter">
           <h4 class="mb-2" data-i18n="app.photo_vin">VIN / numerio nuotrauka</h4>
 
           <img
@@ -275,7 +275,7 @@
           <h4 class="mb-2" data-i18n="app.photo_far">Iš toli</h4>
 
           <img
-            src="TOLI.jpg"
+            src="TOLI.jpg" data-truck-src="/assets/icons/Toli.png"
             alt="Nuotrauka iš toli"
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
@@ -313,7 +313,7 @@
           <h4 class="mb-2" data-i18n="app.photo_close">Iš arti</h4>
 
           <img
-            src="ARTI.jpg"
+            src="ARTI.jpg" data-truck-src="/assets/icons/Arti.png"
             alt="Nuotrauka iš arti"
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
@@ -351,7 +351,7 @@
           <h4 class="mb-2" data-i18n="app.photo_doc">Dokumentas</h4>
 
           <img
-            src="DOK.jpg"
+            src="DOK.jpg" data-truck-src="/assets/icons/Dokumentas.png"
             alt="Dokumento nuotrauka"
             class="w-full max-h-40 object-contain opacity-50 mb-2 rounded"
           >
@@ -400,3 +400,52 @@
   </div>
 
 </div>
+<!-- GBY_TRUCK_PHOTO_EXAMPLES_V1 -->
+<script>
+(function () {
+  function updateDefectExamples() {
+    const form = document.getElementById('defectForm');
+    if (!form) return;
+
+    const truckBlock = form.querySelector('[data-transport-mode="truck"]');
+    const isTruck = truckBlock &&
+      !truckBlock.classList.contains('hidden');
+
+    form.querySelectorAll('img[data-truck-src]').forEach(img => {
+      if (isTruck) {
+        img.src = img.dataset.truckSrc;
+      } else {
+        img.src = img.getAttribute('data-car-src') || img.src;
+      }
+    });
+  }
+
+  const observer = new MutationObserver(updateDefectExamples);
+
+  const initialize = () => {
+    const form = document.getElementById('defectForm');
+    if (!form) return;
+
+    form.querySelectorAll('img[data-truck-src]').forEach(img => {
+      img.setAttribute('data-car-src', img.getAttribute('src'));
+    });
+
+    const truckBlock = form.querySelector('[data-transport-mode="truck"]');
+
+    if (truckBlock) {
+      observer.observe(truckBlock, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+
+    updateDefectExamples();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize, { once: true });
+  } else {
+    initialize();
+  }
+})();
+</script>
