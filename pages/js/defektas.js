@@ -73,12 +73,13 @@ export async function initDefektas({ supabase, user, profile }) {
   const role = profile?.role || 'driver';
 
   const transportMode =
+    window.getAppTransportMode?.() ||
     profile?.effective_transport_mode ||
     profile?.app_transport_mode ||
     profile?.transport_mode ||
-    window.getAppTransportMode?.() ||
     'car_transporter';
 
+  // GBY_TRUCK_VIN_PATCH_V1
   const isTruckMode = transportMode === 'truck';
   const isDriver = role === 'driver' || role === 'truck_driver';
 
@@ -362,7 +363,31 @@ export async function initDefektas({ supabase, user, profile }) {
         field.disabled = !visible;
       });
     });
+// GBY_TRUCK_PHOTO_EXAMPLES_V2
+const photoExamples = {
+  far: {
+    car: 'TOLI.jpg',
+    truck: '/assets/icons/Toli.png'
+  },
+  close: {
+    car: 'ARTI.jpg',
+    truck: '/assets/icons/Arti.png'
+  },
+  document: {
+    car: 'DOK.jpg',
+    truck: '/assets/icons/Dokumentas.png'
+  }
+};
 
+Object.entries(photoExamples).forEach(([category, paths]) => {
+  const img = form.querySelector(
+    `[data-photo-block="${category}"] img`
+  );
+
+  if (img) {
+    img.src = isTruckMode ? paths.truck : paths.car;
+  }
+});
     console.log('✅ Defektų forma režimas:', transportMode);
   }
 
@@ -956,8 +981,9 @@ export async function initDefektas({ supabase, user, profile }) {
         supabase.from('drivers').select('*'),
         supabase
           .from('managers')
-          .select('id, full_name, is_active')
+          .select('id, full_name, is_active, transport_mode')
           .eq('is_active', true)
+          .eq('transport_mode', transportMode)
           .order('full_name', { ascending: true }),
         fetchAllLocations()
       ]);
@@ -1167,7 +1193,10 @@ export async function initDefektas({ supabase, user, profile }) {
       );
     }
 
-    const missing = required.filter(item => !item.value);
+    const missing = required.filter(item =>
+      !item.value &&
+      (!isTruckMode || item.label !== tr('vin_number', 'VIN'))
+    );
 
     missing.forEach(item => {
       if (item.element) {
@@ -1210,6 +1239,7 @@ export async function initDefektas({ supabase, user, profile }) {
     ];
 
     const missingPhotos = requiredPhotos.filter(item => {
+      if (isTruckMode && item.category === 'vin') return false;
       const category = item.input?.dataset?.category || item.category;
       return getFilesForCategory(category).length === 0;
     });
@@ -1251,7 +1281,9 @@ export async function initDefektas({ supabase, user, profile }) {
       'no_truck'
     );
 
-    const categories = ['vin', 'far', 'close', 'document'];
+    const categories = isTruckMode
+      ? ['far', 'close', 'document']
+      : ['vin', 'far', 'close', 'document'];
 
     for (const category of categories) {
       const selectedFiles = getFilesForCategory(category);
@@ -1424,8 +1456,9 @@ export async function initDefektas({ supabase, user, profile }) {
         defect_location:
           getDefectLocationValue(formData),
 
-        vin_number:
-          getValue(formData, ['vin_number', 'vin', 'vinNumber']),
+        vin_number: isTruckMode
+          ? null
+          : getValue(formData, ['vin_number', 'vin', 'vinNumber']),
 
         damage_type: isTruckMode
           ? getValue(formData, ['damage_type', 'damageType'])

@@ -401,66 +401,19 @@ export async function initNustatymai({ supabase, user, profile }) {
   // Lentelė: public.managers
   // ==========================================================
 
+  // GBY_MANAGERS_PARK_V3
+  // Vadybininku valdymas pagal transporto parka.
+
   let managers = [];
+  let selectedManagerPark = 'car_transporter';
 
-  function getManagerTexts() {
-    const lang = getCurrentLang();
+  const managerParks = [
+    { value: 'car_transporter', label: 'Autove\u017eiai' },
+    { value: 'truck', label: 'Vilkikai' }
+  ];
 
-    const texts = {
-      lt: {
-        title: 'Vadybininkai',
-        subtitle: 'Čia administratoriui galima pridėti vadybininkus ir paslėpti tuos, kurie neturi būti rodomi defektų formoje.',
-        namePlaceholder: 'Vadybininko vardas, pvz. Tomas B.',
-        add: 'Pridėti vadybininką',
-        active: 'Aktyvūs',
-        hidden: 'Paslėpti',
-        hide: 'Paslėpti',
-        show: 'Aktyvuoti',
-        noActive: 'Aktyvių vadybininkų nėra',
-        noHidden: 'Paslėptų vadybininkų nėra',
-        enterName: 'Įveskite vadybininko vardą',
-        addError: 'Nepavyko pridėti vadybininko',
-        updateError: 'Nepavyko atnaujinti vadybininko',
-        confirmHide: 'Paslėpti vadybininką?',
-        confirmShow: 'Aktyvuoti vadybininką?'
-      },
-      en: {
-        title: 'Managers',
-        subtitle: 'Admin can add managers and hide those who should not appear in the defect form.',
-        namePlaceholder: 'Manager name, e.g. Tomas B.',
-        add: 'Add manager',
-        active: 'Active',
-        hidden: 'Hidden',
-        hide: 'Hide',
-        show: 'Activate',
-        noActive: 'No active managers',
-        noHidden: 'No hidden managers',
-        enterName: 'Enter manager name',
-        addError: 'Failed to add manager',
-        updateError: 'Failed to update manager',
-        confirmHide: 'Hide this manager?',
-        confirmShow: 'Activate this manager?'
-      },
-      ru: {
-        title: 'Менеджеры',
-        subtitle: 'Администратор может добавить менеджеров и скрыть тех, кто не должен отображаться в форме дефектов.',
-        namePlaceholder: 'Имя менеджера, напр. Tomas B.',
-        add: 'Добавить менеджера',
-        active: 'Активные',
-        hidden: 'Скрытые',
-        hide: 'Скрыть',
-        show: 'Активировать',
-        noActive: 'Активных менеджеров нет',
-        noHidden: 'Скрытых менеджеров нет',
-        enterName: 'Введите имя менеджера',
-        addError: 'Не удалось добавить менеджера',
-        updateError: 'Не удалось обновить менеджера',
-        confirmHide: 'Скрыть менеджера?',
-        confirmShow: 'Активировать менеджера?'
-      }
-    };
-
-    return texts[lang] || texts.lt;
+  function managerParkLabel(mode) {
+    return managerParks.find(x => x.value === mode)?.label || mode;
   }
 
   function ensureManagersPanel() {
@@ -471,16 +424,16 @@ export async function initNustatymai({ supabase, user, profile }) {
 
     panel = document.createElement('div');
     panel.id = 'managersPanel';
-    panel.className = 'bg-slate-900/60 p-5 rounded-2xl border border-slate-800 mt-6';
+    panel.className =
+      'bg-slate-900/60 p-5 rounded-2xl border border-slate-800 mt-6';
 
-    const insertAfter =
+    const anchor =
       dashboardPanel ||
       instructionFormPanel ||
-      document.getElementById('defectPhotosExportPanel') ||
-      document.querySelector('.bg-slate-900\\/60');
+      document.getElementById('defectPhotosExportPanel');
 
-    if (insertAfter?.parentElement) {
-      insertAfter.insertAdjacentElement('afterend', panel);
+    if (anchor?.parentElement) {
+      anchor.insertAdjacentElement('afterend', panel);
     } else {
       document.body.appendChild(panel);
     }
@@ -489,18 +442,12 @@ export async function initNustatymai({ supabase, user, profile }) {
   }
 
   async function loadManagers() {
-    if (!isAdmin) return;
-
     const { data, error } = await supabase
       .from('managers')
-      .select('id, full_name, is_active, created_at')
+      .select('id, full_name, is_active, transport_mode')
       .order('full_name', { ascending: true });
 
-    if (error) {
-      console.error('Managers load error:', error);
-      managers = [];
-      return;
-    }
+    if (error) throw error;
 
     managers = data || [];
   }
@@ -511,132 +458,225 @@ export async function initNustatymai({ supabase, user, profile }) {
     const panel = ensureManagersPanel();
     if (!panel) return;
 
-    const txt = getManagerTexts();
+    const rows = managers.filter(
+      x => x.transport_mode === selectedManagerPark
+    );
 
-    const activeManagers = managers
-      .filter(manager => manager.is_active !== false)
-      .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'lt'));
+    const active = rows.filter(x => x.is_active !== false);
+    const hidden = rows.filter(x => x.is_active === false);
 
-    const hiddenManagers = managers
-      .filter(manager => manager.is_active === false)
-      .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'lt'));
+    function managerRow(manager) {
+      const isActive = manager.is_active !== false;
 
-    function renderManagerRow(manager, active = true) {
       return `
-        <div class="bg-slate-800 rounded-xl p-3 flex items-center justify-between gap-3" data-manager-id="${escapeHtml(manager.id)}">
-          <div class="min-w-0">
-            <div class="font-semibold break-words">${escapeHtml(manager.full_name)}</div>
-            <div class="text-xs ${active ? 'text-green-400' : 'text-slate-500'}">
-              ${active ? escapeHtml(txt.active) : escapeHtml(txt.hidden)}
-            </div>
+        <div class="bg-slate-800 rounded-xl p-3 mb-2">
+          <div class="font-semibold mb-2">
+            ${escapeHtml(manager.full_name)}
           </div>
 
-          <button
-            type="button"
-            class="${active ? 'manager-hide bg-yellow-600 hover:bg-yellow-700' : 'manager-show bg-green-600 hover:bg-green-700'} px-3 py-2 rounded-xl text-sm shrink-0"
-            data-manager-id="${escapeHtml(manager.id)}"
-          >
-            ${active ? escapeHtml(txt.hide) : escapeHtml(txt.show)}
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+
+            <select
+              class="manager-park bg-slate-700 rounded-lg p-2 text-sm"
+              data-id="${escapeHtml(manager.id)}">
+
+              ${managerParks.map(park => `
+                <option value="${park.value}"
+                  ${manager.transport_mode === park.value
+                    ? 'selected' : ''}>
+                  ${escapeHtml(park.label)}
+                </option>
+              `).join('')}
+            </select>
+
+            <button
+              type="button"
+              class="manager-toggle px-3 py-2 rounded-lg text-sm
+                ${isActive
+                  ? 'bg-yellow-600 hover:bg-yellow-700'
+                  : 'bg-green-600 hover:bg-green-700'}"
+              data-id="${escapeHtml(manager.id)}">
+
+              ${isActive ? 'Pasl\u0117pti' : 'Aktyvuoti'}
+            </button>
+          </div>
         </div>
       `;
     }
 
     panel.innerHTML = `
-      <div class="flex flex-col gap-2 mb-4">
-        <h2 class="text-xl font-semibold">${escapeHtml(txt.title)}</h2>
-        <p class="text-sm text-slate-400">${escapeHtml(txt.subtitle)}</p>
-      </div>
+      <h2 class="text-xl font-semibold mb-2">
+        Vadybinink\u0173 valdymas
+      </h2>
+
+      <p class="text-sm text-slate-400 mb-4">
+        Pasirinkite park\u0105, pridÄ—kite vadybininkus arba
+        pakeiskite j\u0173 priskyrim\u0105.
+      </p>
+
+      <label class="block text-sm mb-2">Parkas</label>
+
+      <select id="managerParkFilter"
+        class="w-full bg-slate-800 border border-slate-700
+               rounded-xl p-3 mb-5">
+
+        ${managerParks.map(park => `
+          <option value="${park.value}"
+            ${selectedManagerPark === park.value ? 'selected' : ''}>
+            ${escapeHtml(park.label)}
+          </option>
+        `).join('')}
+      </select>
 
       <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-5">
-        <input
-          id="managerNameInput"
+
+        <input id="managerNameInput"
           type="text"
           autocomplete="off"
-          class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3"
-          placeholder="${escapeHtml(txt.namePlaceholder)}"
-        >
+          placeholder="Vadybininko vardas"
+          class="w-full bg-slate-800 border border-slate-700
+                 rounded-xl p-3">
 
-        <button
-          id="addManagerBtn"
-          type="button"
-          class="bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-3 font-semibold"
-        >
-          ${escapeHtml(txt.add)}
+        <button id="addManagerBtn" type="button"
+          class="bg-blue-600 hover:bg-blue-700 rounded-xl
+                 px-4 py-3 font-semibold">
+          Prid\u0117ti vadybinink\u0105
         </button>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold">${escapeHtml(txt.active)}</h3>
-            <span class="text-xs bg-green-700 rounded-full px-3 py-1">${activeManagers.length}</span>
-          </div>
 
-          <div class="space-y-2">
-            ${
-              activeManagers.length
-                ? activeManagers.map(manager => renderManagerRow(manager, true)).join('')
-                : `<div class="text-sm text-slate-400">${escapeHtml(txt.noActive)}</div>`
-            }
-          </div>
+        <div>
+          <h3 class="font-semibold mb-3">
+            Aktyv\u016bs (${active.length})
+          </h3>
+          ${active.length
+            ? active.map(managerRow).join('')
+            : '<p class="text-slate-400">AktyviÅ³ vadybininkÅ³ n\u0117ra</p>'}
         </div>
 
         <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold">${escapeHtml(txt.hidden)}</h3>
-            <span class="text-xs bg-slate-700 rounded-full px-3 py-1">${hiddenManagers.length}</span>
-          </div>
-
-          <div class="space-y-2">
-            ${
-              hiddenManagers.length
-                ? hiddenManagers.map(manager => renderManagerRow(manager, false)).join('')
-                : `<div class="text-sm text-slate-400">${escapeHtml(txt.noHidden)}</div>`
-            }
-          </div>
+          <h3 class="font-semibold mb-3">
+            Pasl\u0117pti (${hidden.length})
+          </h3>
+          ${hidden.length
+            ? hidden.map(managerRow).join('')
+            : '<p class="text-slate-400">Paslėptų vadybininkų nėra</p>'}
         </div>
       </div>
     `;
 
-    document.getElementById('addManagerBtn')?.addEventListener('click', addManager);
+    panel.querySelector('#managerParkFilter')
+      ?.addEventListener('change', event => {
+        selectedManagerPark = event.target.value;
+        renderManagersPanel();
+      });
 
-    panel.querySelectorAll('.manager-hide').forEach(button => {
-      button.addEventListener('click', async () => {
-        await updateManagerActive(button.dataset.managerId, false);
+    panel.querySelector('#addManagerBtn')
+      ?.addEventListener('click', addManager);
+
+    panel.querySelector('#managerNameInput')
+      ?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addManager();
+        }
+      });
+
+    panel.querySelectorAll('.manager-park').forEach(select => {
+      select.addEventListener('change', async event => {
+        const id = event.target.dataset.id;
+        const newPark = event.target.value;
+
+        const manager = managers.find(
+          x => String(x.id) === String(id)
+        );
+
+        if (!manager) return;
+
+        const oldPark = manager.transport_mode;
+
+        if (!confirm(
+          `Pakeisti parkÄ… ÄÆ ${managerParkLabel(newPark)}?`
+        )) {
+          event.target.value = oldPark;
+          return;
+        }
+
+        const { error } = await supabase
+          .from('managers')
+          .update({ transport_mode: newPark })
+          .eq('id', id);
+
+        if (error) {
+          alert(error.message || 'Nepavyko pakeisti parko');
+          event.target.value = oldPark;
+          return;
+        }
+
+        await refreshManagersUi();
       });
     });
 
-    panel.querySelectorAll('.manager-show').forEach(button => {
+    panel.querySelectorAll('.manager-toggle').forEach(button => {
       button.addEventListener('click', async () => {
-        await updateManagerActive(button.dataset.managerId, true);
-      });
-    });
+        const id = button.dataset.id;
 
-    document.getElementById('managerNameInput')?.addEventListener('keydown', async event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        await addManager();
-      }
+        const manager = managers.find(
+          x => String(x.id) === String(id)
+        );
+
+        if (!manager) return;
+
+        const newStatus = manager.is_active === false;
+
+        if (!confirm(
+          newStatus
+            ? 'Aktyvuoti vadybininkÄ…?'
+            : 'Pasl\u0117pti vadybininkÄ…?'
+        )) return;
+
+        const { error } = await supabase
+          .from('managers')
+          .update({ is_active: newStatus })
+          .eq('id', id);
+
+        if (error) {
+          alert(error.message || 'Nepavyko pakeisti bÅ«senos');
+          return;
+        }
+
+        await refreshManagersUi();
+      });
     });
   }
 
   async function refreshManagersUi() {
     if (!isAdmin) return;
 
-    await loadManagers();
-    renderManagersPanel();
+    try {
+      await loadManagers();
+      renderManagersPanel();
+    } catch (error) {
+      console.error('Managers error:', error);
+      const panel = ensureManagersPanel();
+
+      if (panel) {
+        panel.textContent =
+          'Nepavyko uÅ¾krauti vadybininkÅ³: ' +
+          (error.message || 'NeÅ¾inoma klaida');
+      }
+    }
   }
 
   async function addManager() {
     if (!isAdmin) return;
 
-    const txt = getManagerTexts();
     const input = document.getElementById('managerNameInput');
     const fullName = String(input?.value || '').trim();
 
     if (!fullName) {
-      alert(txt.enterName);
+      alert('Įveskite vadybininko vardą');
       input?.focus();
       return;
     }
@@ -645,39 +685,13 @@ export async function initNustatymai({ supabase, user, profile }) {
       .from('managers')
       .insert({
         full_name: fullName,
+        transport_mode: selectedManagerPark,
         is_active: true,
         created_by: currentUser.id
       });
 
     if (error) {
-      console.error('Manager add error:', error);
-      alert(error.message || txt.addError);
-      return;
-    }
-
-    if (input) input.value = '';
-
-    await refreshManagersUi();
-  }
-
-  async function updateManagerActive(managerId, isActive) {
-    if (!isAdmin || !managerId) return;
-
-    const txt = getManagerTexts();
-
-    const confirmed = confirm(isActive ? txt.confirmShow : txt.confirmHide);
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from('managers')
-      .update({
-        is_active: isActive
-      })
-      .eq('id', managerId);
-
-    if (error) {
-      console.error('Manager update error:', error);
-      alert(error.message || txt.updateError);
+      alert(error.message || 'Nepavyko pridÄ—ti vadybininko');
       return;
     }
 
@@ -689,9 +703,8 @@ export async function initNustatymai({ supabase, user, profile }) {
   }
 
   // ==========================================================
-  // DASHBOARD PAVEIKSLĖLIAI
+  // DASHBOARD PAVEIKSLÄ–LIAI
   // ==========================================================
-
   let dashboardImages = [];
 
   function getDashboardImageUrl(img) {

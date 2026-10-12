@@ -32,30 +32,25 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
 
   const photos = new Map();
 
+  // GBY_QUALITY_PATCH_V1
   const qualityItems = [
     {
       key: 'platform_condition',
       category: 'platform',
       titleKey: 'truck_acceptance.platform_condition',
-      titleFallback: 'Platformos būklė'
-    },
-    {
-      key: 'platform_order',
-      category: 'platform_order',
-      titleKey: 'truck_acceptance.platform_order',
-      titleFallback: 'Tvarka ant platformos'
+      titleFallback: 'I\u0161orin\u0117 transporto priemon\u0117s b\u016bkl\u0117'
     },
     {
       key: 'safety_fences_condition',
       category: 'safety_fences',
       titleKey: 'truck_acceptance.safety_fences',
-      titleFallback: 'Apsauginių tvorų būklė'
+      titleFallback: 'Tento b\u016bkl\u0117'
     },
     {
       key: 'straps_condition',
       category: 'straps',
       titleKey: 'truck_acceptance.straps',
-      titleFallback: 'Tvirtinimo diržų būklė'
+      titleFallback: 'Tvirtinimo dir\u017e\u0173 b\u016bkl\u0117'
     },
     {
       key: 'work_inventory_condition',
@@ -70,7 +65,6 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
       titleFallback: 'Tvirtinimas'
     }
   ];
-
   const ratingOptions = [
     {
       value: 'Blokas',
@@ -163,7 +157,25 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
 
     grid.innerHTML = qualityItems.map(item => `
       <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 min-w-0">
-        <h3 class="font-semibold mb-3 break-words">${escapeHtml(tr(item.titleKey, item.titleFallback))}</h3>
+        ${escapeHtml(
+  item.key === 'platform_condition'
+    ? (
+        (localStorage.getItem('lang') || profile?.lang || 'lt') === 'ru'
+          ? 'Внешнее состояние транспортного средства'
+          : (localStorage.getItem('lang') || profile?.lang || 'lt') === 'en'
+            ? 'Exterior vehicle condition'
+            : 'Išorinė transporto priemonės būklė'
+      )
+    : item.key === 'safety_fences_condition'
+      ? (
+          (localStorage.getItem('lang') || profile?.lang || 'lt') === 'ru'
+            ? 'Состояние тента'
+            : (localStorage.getItem('lang') || profile?.lang || 'lt') === 'en'
+              ? 'Tarpaulin condition'
+              : 'Tento būklė'
+        )
+      : tr(item.titleKey, item.titleFallback)
+)}
 
         <div class="space-y-3">
           <div>
@@ -440,7 +452,6 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
 
       [data-choice-group$="condition"] .choice-btn.active,
       [data-choice-group="platform_condition"] .choice-btn.active,
-      [data-choice-group="platform_order"] .choice-btn.active,
       [data-choice-group="safety_fences_condition"] .choice-btn.active,
       [data-choice-group="straps_condition"] .choice-btn.active,
       [data-choice-group="work_inventory_condition"] .choice-btn.active,
@@ -454,11 +465,67 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
     document.head.appendChild(style);
   }
 
+    async function compressTruckAcceptanceImage(file, maxSide = 1600, quality = 0.72) {
+    try {
+      if (!file || !file.type || !file.type.startsWith('image/')) return file;
+
+      const imageUrl = URL.createObjectURL(file);
+
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = imageUrl;
+      });
+
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+
+      if (!width || !height) {
+        URL.revokeObjectURL(imageUrl);
+        return file;
+      }
+
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      const targetWidth = Math.max(1, Math.round(width * scale));
+      const targetHeight = Math.max(1, Math.round(height * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      URL.revokeObjectURL(imageUrl);
+
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      });
+
+      if (!blob) return file;
+
+      const originalName = String(file.name || 'photo.jpg');
+      const baseName = originalName.replace(/\.[^.]+$/, '') || 'photo';
+      const compressedName = `${baseName}.jpg`;
+
+      return new File([blob], compressedName, {
+        type: 'image/jpeg',
+        lastModified: Date.now()
+      });
+    } catch (error) {
+      console.warn('Truck acceptance image compression failed, uploading original file:', error);
+      return file;
+    }
+  }
+
   async function uploadPhotos(reportId) {
     const rows = [];
 
     for (const [category, file] of photos.entries()) {
-      const safeName = String(file.name || 'photo.jpg')
+      const uploadFile = await compressTruckAcceptanceImage(file);
+
+      const safeName = String(uploadFile.name || file.name || 'photo.jpg')
         .toLowerCase()
         .replace(/[^a-z0-9._-]+/g, '-')
         .replace(/-+/g, '-')
@@ -469,9 +536,9 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
       const { error: uploadError } = await supabase
         .storage
         .from('truck-acceptance-photos')
-        .upload(filePath, file, {
+        .upload(filePath, uploadFile, {
           cacheControl: '3600',
-          contentType: file.type || 'image/jpeg',
+          contentType: uploadFile.type || 'image/jpeg',
           upsert: false
         });
 
@@ -484,8 +551,8 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
         category,
         file_path: filePath,
         file_name: file.name,
-        mime_type: file.type || null,
-        size_bytes: file.size || null,
+        mime_type: uploadFile.type || 'image/jpeg',
+        size_bytes: uploadFile.size || file.size || null,
         uploaded_by: user.id
       });
     }
@@ -542,7 +609,7 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
       trailer_axle_3_right_outer: numberValue('trailerAxle3RightOuter'),
 
       platform_condition: getChoice('platform_condition'),
-      platform_order: getChoice('platform_order'),
+      platform_order: null,
       safety_fences_condition: getChoice('safety_fences_condition'),
       straps_condition: getChoice('straps_condition'),
       work_inventory_condition: getChoice('work_inventory_condition'),
@@ -630,3 +697,4 @@ export async function initVilkikoPriemimas({ supabase, user, profile }) {
   bindChoiceButtons();
   bindPhotoInputs();
 }
+

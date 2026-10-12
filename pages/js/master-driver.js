@@ -45,7 +45,21 @@ export async function initMasterDriver({ supabase, user, profile }) {
     window.getAppTransportMode?.() ||
     'car_transporter';
 
+  // GBY_MASTER_TRUCK_V1
   const isTruckMode = transportMode === 'truck';
+
+  if (isTruckMode) {
+    document
+      .querySelectorAll('[data-transport-mode="car_transporter"]')
+      .forEach(block => {
+        block.classList.add('hidden');
+
+        block.querySelectorAll('input, select, textarea')
+          .forEach(input => {
+            input.disabled = true;
+          });
+      });
+  }
   const GBY_LOGO_SRC = '/Logo_GBY.jpg';
 
   const canManage = canFillLoadingSchemes;
@@ -74,7 +88,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
     drivers: []
   };
 
-  const requiredPhotoCategories = [
+  const requiredPhotoCategories = isTruckMode ? [] : [
     'truck_side_required',
     'trailer_side_required',
     'full_carrier_side_required'
@@ -1020,7 +1034,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
         client: null,
         loading_place: text('ksLoadingPlace'),
         destination: text('ksDestination'),
-        carrier_type: text('ksCarrierType'),
+        carrier_type: isTruckMode ? null : text('ksCarrierType'),
         scheme_description: text('ksSchemeDescription'),
         master_driver_comment: text('ksMasterComment'),
         status: 'waiting_approval',
@@ -1054,7 +1068,7 @@ export async function initMasterDriver({ supabase, user, profile }) {
         schemeId = data.id;
       }
 
-      const cars = collectCarRows();
+      const cars = isTruckMode ? [] : collectCarRows();
 
       await supabase
         .from('loading_scheme_cars')

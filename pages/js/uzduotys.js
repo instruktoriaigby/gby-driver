@@ -1,4 +1,4 @@
-import { t } from '../../i18n.js';
+﻿import { t } from '../../i18n.js';
 
 export async function initUzduotys({ supabase, user, profile } = {}) {
   const tx = (key, fallback) => {
@@ -2210,7 +2210,28 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
 
       const logoUrl = new URL('Logo_GBY.jpg', window.location.href).href;
 
-      const title = 'Vilkiko priemimo ataskaita';
+            const pdfTruckNumber = String(
+        report?.truck_number ||
+        report?.truck_plate ||
+        report?.vehicle_number ||
+        task?.truck_number ||
+        task?.vehicle_number ||
+        'vilkikas'
+      )
+        .trim()
+        .replace(/\s+/g, '_')
+        .replace(/[^A-Za-z0-9_\-]/g, '');
+
+      const pdfDate = String(
+        report?.report_date ||
+        report?.created_at ||
+        report?.submitted_at ||
+        report?.date ||
+        task?.created_at ||
+        new Date().toISOString()
+      ).slice(0, 10);
+
+      const title = `Vilkiko_priemimo_ataskaita_${pdfTruckNumber || 'vilkikas'}_${pdfDate}`;
 
       const html = `
         <!doctype html>
@@ -2941,6 +2962,27 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
                 .decision-box {
                   page-break-inside: avoid;
                 }
+              }
+            
+              /* GBY footer border fix */
+              .generated-footer {
+                border-top: 0 !important;
+              }
+
+              .generated-footer::before,
+              .generated-footer::after {
+                display: none !important;
+                content: none !important;
+              }
+
+              .gby-footer {
+                border-top: 1px solid #cfd5dd !important;
+              }
+
+              .gby-footer table,
+              .gby-footer tr,
+              .gby-footer td {
+                border-top-width: 0 !important;
               }
             </style>
           </head>
