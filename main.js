@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     'vilkiko-priemimas': {
       car_transporter: ['admin', 'master_driver', 'instructor'],
-      truck: ['admin', 'truck_driver', 'truck_master_driver', 'truck_instructor']
+      truck: ['admin', 'truck_master_driver', 'truck_instructor']
     },
 
     'master-driver': {
@@ -528,7 +528,65 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     ensureAdminModeSwitcher();
     updateAdminModeSwitcherLabels();
+// Schemu pavadinimai pagal transporto parka
+const isTruckMode = getEffectiveTransportMode() === 'truck';
 
+const schemeTranslations = {
+  lt: {
+    title: 'Tvirtinimo schemos',
+    subtitle: 'Krovinių tvirtinimo schemų kūrimas, patvirtinimas ir bendroji patvirtintų schemų bazė.'
+  },
+  ru: {
+    title: 'Схемы крепления груза',
+    subtitle: 'Создание и утверждение схем крепления груза, а также общая база утверждённых схем.'
+  },
+  en: {
+    title: 'Cargo securing schemes',
+    subtitle: 'Creation and approval of cargo securing schemes and a shared database of approved schemes.'
+  },
+  pl: {
+    title: 'Schematy mocowania ładunku',
+    subtitle: 'Tworzenie i zatwierdzanie schematów mocowania ładunku oraz общая база утверждённых схем.'
+  }
+};
+
+const lang = (
+  localStorage.getItem('lang') ||
+  currentProfile?.lang ||
+  'lt'
+).toLowerCase().split('-')[0];
+
+const translated = schemeTranslations[lang] || schemeTranslations.lt;
+
+const navScheme = document.querySelector(
+  '[data-i18n="nav.loading_schemes"]'
+);
+
+if (navScheme) {
+  navScheme.textContent = isTruckMode
+    ? translated.title
+    : t('nav.loading_schemes');
+}
+
+const schemeTitle = document.querySelector(
+  '#content [data-i18n="loading_schemes.title"]'
+);
+
+const schemeSubtitle = document.querySelector(
+  '#content [data-i18n="loading_schemes.subtitle"]'
+);
+
+if (schemeTitle) {
+  schemeTitle.textContent = isTruckMode
+    ? translated.title
+    : t('loading_schemes.title');
+}
+
+if (schemeSubtitle) {
+  schemeSubtitle.textContent = isTruckMode
+    ? translated.subtitle
+    : t('loading_schemes.subtitle');
+}
     setTimeout(updateMobileNavScrollHint, 50);
   }
 
@@ -582,12 +640,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     container.innerHTML = `<div class="text-slate-400">${t('common.loading') || 'Kraunama...'}</div>`;
 
+    const transportMode = getEffectiveTransportMode();
+
     const { data, error } = await supabase
-      .from('dashboard_images')
-      .select('id, image_url, file_path, title, sort_order, is_active, created_at')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
+     .from('dashboard_images')
+     .select('id, image_url, file_path, title, sort_order, is_active, created_at')
+     .eq('is_active', true)
+     .eq('transport_mode', transportMode)
+     .order('sort_order', { ascending: true })
+     .order('created_at', { ascending: false })
+     .limit(3);
 
     if (error) {
       console.error('Dashboard images load error:', error);
