@@ -1,3 +1,4 @@
+
 import { t } from '../../i18n.js';
 
 export async function initNustatymai({ supabase, user, profile }) {
@@ -130,7 +131,7 @@ export async function initNustatymai({ supabase, user, profile }) {
 
     instructions = (data || []).map(normalizeInstruction);
 
-    console.log('✅ Nustatymai instrukcijos užkrautos:', {
+    console.log('Nustatymai instrukcijos užkrautos:', {
       transportMode,
       count: instructions.length
     });
@@ -138,7 +139,6 @@ export async function initNustatymai({ supabase, user, profile }) {
 
   async function refreshInstructionsUi() {
     await loadInstructionsFromSupabase();
-
     fillSearchSuggestions();
     renderInstrList();
   }
@@ -302,7 +302,6 @@ export async function initNustatymai({ supabase, user, profile }) {
     if (!canManageInstructions) return;
 
     const type = typeSelect.value;
-
     const title = document.getElementById('title').value.trim();
     const description = document.getElementById('desc').value.trim();
 
@@ -397,18 +396,13 @@ export async function initNustatymai({ supabase, user, profile }) {
 
   // ==========================================================
   // VADYBININKŲ VALDYMAS
-  // Admin gali pridėti, paslėpti ir aktyvuoti vadybininkus.
-  // Lentelė: public.managers
   // ==========================================================
-
-  // GBY_MANAGERS_PARK_V3
-  // Vadybininku valdymas pagal transporto parka.
 
   let managers = [];
   let selectedManagerPark = 'car_transporter';
 
   const managerParks = [
-    { value: 'car_transporter', label: 'Autove\u017eiai' },
+    { value: 'car_transporter', label: 'Autovežiai' },
     { value: 'truck', label: 'Vilkikai' }
   ];
 
@@ -475,7 +469,6 @@ export async function initNustatymai({ supabase, user, profile }) {
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-
             <select
               class="manager-park bg-slate-700 rounded-lg p-2 text-sm"
               data-id="${escapeHtml(manager.id)}">
@@ -497,7 +490,7 @@ export async function initNustatymai({ supabase, user, profile }) {
                   : 'bg-green-600 hover:bg-green-700'}"
               data-id="${escapeHtml(manager.id)}">
 
-              ${isActive ? 'Pasl\u0117pti' : 'Aktyvuoti'}
+              ${isActive ? 'Paslėpti' : 'Aktyvuoti'}
             </button>
           </div>
         </div>
@@ -506,12 +499,12 @@ export async function initNustatymai({ supabase, user, profile }) {
 
     panel.innerHTML = `
       <h2 class="text-xl font-semibold mb-2">
-        Vadybinink\u0173 valdymas
+        Vadybininkų valdymas
       </h2>
 
       <p class="text-sm text-slate-400 mb-4">
-        Pasirinkite park\u0105, pridÄ—kite vadybininkus arba
-        pakeiskite j\u0173 priskyrim\u0105.
+        Pasirinkite parką, pridėkite vadybininkus arba
+        pakeiskite jų priskyrimą.
       </p>
 
       <label class="block text-sm mb-2">Parkas</label>
@@ -540,7 +533,7 @@ export async function initNustatymai({ supabase, user, profile }) {
         <button id="addManagerBtn" type="button"
           class="bg-blue-600 hover:bg-blue-700 rounded-xl
                  px-4 py-3 font-semibold">
-          Prid\u0117ti vadybinink\u0105
+          Pridėti vadybininką
         </button>
       </div>
 
@@ -548,16 +541,16 @@ export async function initNustatymai({ supabase, user, profile }) {
 
         <div>
           <h3 class="font-semibold mb-3">
-            Aktyv\u016bs (${active.length})
+            Aktyvūs (${active.length})
           </h3>
           ${active.length
             ? active.map(managerRow).join('')
-            : '<p class="text-slate-400">AktyviÅ³ vadybininkÅ³ n\u0117ra</p>'}
+            : '<p class="text-slate-400">Aktyvių vadybininkų nėra</p>'}
         </div>
 
         <div>
           <h3 class="font-semibold mb-3">
-            Pasl\u0117pti (${hidden.length})
+            Paslėpti (${hidden.length})
           </h3>
           ${hidden.length
             ? hidden.map(managerRow).join('')
@@ -597,7 +590,7 @@ export async function initNustatymai({ supabase, user, profile }) {
         const oldPark = manager.transport_mode;
 
         if (!confirm(
-          `Pakeisti parkÄ… ÄÆ ${managerParkLabel(newPark)}?`
+          `Pakeisti parką į ${managerParkLabel(newPark)}?`
         )) {
           event.target.value = oldPark;
           return;
@@ -632,8 +625,8 @@ export async function initNustatymai({ supabase, user, profile }) {
 
         if (!confirm(
           newStatus
-            ? 'Aktyvuoti vadybininkÄ…?'
-            : 'Pasl\u0117pti vadybininkÄ…?'
+            ? 'Aktyvuoti vadybininką?'
+            : 'Paslėpti vadybininką?'
         )) return;
 
         const { error } = await supabase
@@ -642,7 +635,7 @@ export async function initNustatymai({ supabase, user, profile }) {
           .eq('id', id);
 
         if (error) {
-          alert(error.message || 'Nepavyko pakeisti bÅ«senos');
+          alert(error.message || 'Nepavyko pakeisti būsenos');
           return;
         }
 
@@ -663,8 +656,8 @@ export async function initNustatymai({ supabase, user, profile }) {
 
       if (panel) {
         panel.textContent =
-          'Nepavyko uÅ¾krauti vadybininkÅ³: ' +
-          (error.message || 'NeÅ¾inoma klaida');
+          'Nepavyko užkrauti vadybininkų: ' +
+          (error.message || 'Nežinoma klaida');
       }
     }
   }
@@ -691,7 +684,7 @@ export async function initNustatymai({ supabase, user, profile }) {
       });
 
     if (error) {
-      alert(error.message || 'Nepavyko pridÄ—ti vadybininko');
+      alert(error.message || 'Nepavyko pridėti vadybininko');
       return;
     }
 
@@ -703,8 +696,9 @@ export async function initNustatymai({ supabase, user, profile }) {
   }
 
   // ==========================================================
-  // DASHBOARD PAVEIKSLÄ–LIAI
+  // DASHBOARD PAVEIKSLĖLIAI
   // ==========================================================
+
   let dashboardImages = [];
 
   function getDashboardImageUrl(img) {
@@ -726,13 +720,13 @@ export async function initNustatymai({ supabase, user, profile }) {
     if (!isAdmin) return;
 
     const { data, error } = await supabase
-  .from('dashboard_images')
-  .select('id, image_url, file_path, title, sort_order, is_active, created_at')
-  .eq('is_active', true)
-  .eq('transport_mode', transportMode)
-  .order('sort_order', { ascending: true })
-  .order('created_at', { ascending: false })
-  .limit(3);
+      .from('dashboard_images')
+      .select('id, image_url, file_path, title, sort_order, is_active, created_at')
+      .eq('is_active', true)
+      .eq('transport_mode', transportMode)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(3);
 
     if (error) {
       console.error('Dashboard images load error:', error);
@@ -782,8 +776,9 @@ export async function initNustatymai({ supabase, user, profile }) {
       .replace(/^-|-$/g, '') || 'dashboard.jpg';
   }
 
-  // GBY_DASHBOARD_SAFE_SAVE_V2
-  // Naujas rinkinys issaugomas pries salinant sena.
+  // ==========================================================
+  // SAUGUS DASHBOARD PAVEIKSLĖLIŲ IŠSAUGOJIMAS
+  // ==========================================================
 
   await loadDashboardImages();
   renderDashboardPreview();
@@ -795,12 +790,12 @@ export async function initNustatymai({ supabase, user, profile }) {
     const files = Array.from(input?.files || []);
 
     if (!files.length) {
-      alert('Pasirinkite JPEG paveikslelius');
+      alert('Pasirinkite JPEG paveikslėlius');
       return;
     }
 
     if (files.length > 3) {
-      alert('Galima ikelti iki 3 paveiksleliu');
+      alert('Galima įkelti iki 3 paveikslėlių');
       return;
     }
 
@@ -817,7 +812,7 @@ export async function initNustatymai({ supabase, user, profile }) {
     }
 
     const saveBtn = document.getElementById('saveDashboardImages');
-    const originalText = saveBtn?.textContent || 'Issaugoti';
+    const originalText = saveBtn?.textContent || 'Išsaugoti';
 
     const oldImages = dashboardImages.map(img => ({ ...img }));
     const uploadedPaths = [];
@@ -831,7 +826,7 @@ export async function initNustatymai({ supabase, user, profile }) {
     try {
       const rows = [];
 
-      // 1. Pirmiausia ikeliame VISUS naujus failus.
+      // Pirma įkeliami visi nauji failai.
       for (const [index, file] of files.entries()) {
         const safeName = getSafeFileName(file.name);
 
@@ -852,9 +847,7 @@ export async function initNustatymai({ supabase, user, profile }) {
           });
 
         if (uploadError) {
-          throw new Error(
-            'Storage: ' + uploadError.message
-          );
+          throw new Error('Storage: ' + uploadError.message);
         }
 
         uploadedPaths.push(filePath);
@@ -875,20 +868,18 @@ export async function initNustatymai({ supabase, user, profile }) {
         });
       }
 
-      // 2. Issaugome naujus irasus duomenu bazeje.
+      // Nauji įrašai išsaugomi duomenų bazėje.
       const { error: insertError } = await supabase
         .from('dashboard_images')
         .insert(rows);
 
       if (insertError) {
-        throw new Error(
-          'Duomenu baze: ' + insertError.message
-        );
+        throw new Error('Duomenų bazė: ' + insertError.message);
       }
 
       newRowsSaved = true;
 
-      // 3. Tik dabar saliname SENO rinkinio irasus.
+      // Šalinami tik ankstesni pasirinkto parko įrašai.
       const oldIds = oldImages
         .map(img => img.id)
         .filter(Boolean);
@@ -905,14 +896,13 @@ export async function initNustatymai({ supabase, user, profile }) {
         if (deleteError) {
           oldRowsDeleted = false;
           console.error(
-            'Senu dashboard irasu trynimo klaida:',
+            'Senų dashboard įrašų trynimo klaida:',
             deleteError
           );
         }
       }
 
-      // 4. Senus Storage failus saliname tik jei
-      //    senu DB irasu trynimas pavyko.
+      // Senieji failai šalinami tik sėkmingai pašalinus DB įrašus.
       if (oldRowsDeleted) {
         const oldPaths = oldImages
           .map(img => img.file_path)
@@ -926,7 +916,7 @@ export async function initNustatymai({ supabase, user, profile }) {
 
           if (removeError) {
             console.warn(
-              'Senu Storage failu pasalinti nepavyko:',
+              'Senų Storage failų pašalinti nepavyko:',
               removeError
             );
           }
@@ -940,8 +930,8 @@ export async function initNustatymai({ supabase, user, profile }) {
 
       if (!oldRowsDeleted) {
         alert(
-          'Nauji paveiksleliai issaugoti, bet senu irasu ' +
-          'nepavyko pasalinti. Patikrinkite Console.'
+          'Nauji paveikslėliai išsaugoti, bet senų įrašų ' +
+          'nepavyko pašalinti. Patikrinkite Console.'
         );
       } else {
         alert('Dashboard atnaujintas!');
@@ -952,8 +942,6 @@ export async function initNustatymai({ supabase, user, profile }) {
     } catch (err) {
       console.error('Dashboard save error:', err);
 
-      // Jei DB irasai dar nesukurti, pasaliname
-      // tik siuo bandymu ikeltus failus.
       if (!newRowsSaved && uploadedPaths.length) {
         const { error: cleanupError } = await supabase
           .storage
@@ -962,15 +950,15 @@ export async function initNustatymai({ supabase, user, profile }) {
 
         if (cleanupError) {
           console.warn(
-            'Nepavyko isvalyti nepanaudotu failu:',
+            'Nepavyko išvalyti nepanaudotų failų:',
             cleanupError
           );
         }
       }
 
       alert(
-        'Nepavyko issaugoti paveiksleliu:\n\n' +
-        (err?.message || 'Nezinoma klaida')
+        'Nepavyko išsaugoti paveikslėlių:\n\n' +
+        (err?.message || 'Nežinoma klaida')
       );
 
     } finally {
@@ -980,8 +968,9 @@ export async function initNustatymai({ supabase, user, profile }) {
       }
     }
   });
+
   // ==========================================================
-  // DEFEKTŲ NUOTRAUKŲ EXPORT
+  // DEFEKTŲ NUOTRAUKŲ EKSPORTAS
   // ==========================================================
 
   const defectPhotosExportPanel = document.getElementById('defectPhotosExportPanel');
@@ -1005,7 +994,12 @@ export async function initNustatymai({ supabase, user, profile }) {
     if (!defectPhotosExportMessage) return;
 
     defectPhotosExportMessage.textContent = message || '';
-    defectPhotosExportMessage.classList.remove('text-slate-400', 'text-green-400', 'text-red-400', 'text-yellow-400');
+    defectPhotosExportMessage.classList.remove(
+      'text-slate-400',
+      'text-green-400',
+      'text-red-400',
+      'text-yellow-400'
+    );
 
     if (type === 'success') {
       defectPhotosExportMessage.classList.add('text-green-400');
@@ -1142,7 +1136,10 @@ export async function initNustatymai({ supabase, user, profile }) {
     if (!isAdmin || !defectPhotosExportStats) return;
 
     try {
-      const [{ count: notExportedCount, error: notExportedError }, { count: exportedCount, error: exportedError }] = await Promise.all([
+      const [
+        { count: notExportedCount, error: notExportedError },
+        { count: exportedCount, error: exportedError }
+      ] = await Promise.all([
         supabase
           .from('defect_photos')
           .select('id', { count: 'exact', head: true })
@@ -1160,40 +1157,61 @@ export async function initNustatymai({ supabase, user, profile }) {
 
       defectPhotosExportStats.innerHTML = `
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div><span class="text-slate-400">Neperkeltos nuotraukos:</span> <b>${notExportedCount || 0}</b></div>
-          <div><span class="text-slate-400">Pažymėtos kaip perkeltos, bet dar Storage:</span> <b>${exportedCount || 0}</b></div>
+          <div>
+            <span class="text-slate-400">Neperkeltos nuotraukos:</span>
+            <b>${notExportedCount || 0}</b>
+          </div>
+          <div>
+            <span class="text-slate-400">Pažymėtos kaip perkeltos, bet dar Storage:</span>
+            <b>${exportedCount || 0}</b>
+          </div>
         </div>
       `;
 
     } catch (err) {
       console.error('Export stats error:', err);
-      defectPhotosExportStats.textContent = 'Nepavyko suskaičiuoti defektų nuotraukų.';
+      defectPhotosExportStats.textContent =
+        'Nepavyko suskaičiuoti defektų nuotraukų.';
     }
   }
 
   async function downloadDefectPhotosZip() {
     if (!isAdmin) return;
 
-    setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], true);
+    setButtonsDisabled([
+      refreshDefectPhotosExportBtn,
+      downloadDefectPhotosZipBtn,
+      markLastDefectPhotosExportedBtn,
+      deleteExportedDefectPhotosBtn
+    ], true);
+
     setExportMessage('Ruošiamas ZIP failas...', 'info');
 
     try {
       const photos = await loadPhotosForExport({ exported: false });
 
       if (!photos.length) {
-        setExportMessage('Nėra neperkeltų defektų nuotraukų.', 'warning');
+        setExportMessage(
+          'Nėra neperkeltų defektų nuotraukų.',
+          'warning'
+        );
         return;
       }
 
       const JSZip = await loadJsZip();
       const zip = new JSZip();
-      const defectsMap = await loadDefectRows(photos.map(photo => photo.defect_id));
+      const defectsMap = await loadDefectRows(
+        photos.map(photo => photo.defect_id)
+      );
       const usedNames = new Map();
       const successfulIds = [];
       const failed = [];
 
       for (const [index, photo] of photos.entries()) {
-        setExportMessage(`Atsisiunčiama ${index + 1} iš ${photos.length}...`, 'info');
+        setExportMessage(
+          `Atsisiunčiama ${index + 1} iš ${photos.length}...`,
+          'info'
+        );
 
         if (!photo.file_path) {
           failed.push(`${photo.id}: nėra file_path`);
@@ -1206,21 +1224,49 @@ export async function initNustatymai({ supabase, user, profile }) {
           .download(photo.file_path);
 
         if (downloadError || !blob) {
-          console.error('Defect photo download error:', photo, downloadError);
-          failed.push(`${photo.file_name || photo.file_path}: ${downloadError?.message || 'nepavyko atsisiųsti'}`);
+          console.error(
+            'Defect photo download error:',
+            photo,
+            downloadError
+          );
+
+          failed.push(
+            `${photo.file_name || photo.file_path}: ` +
+            `${downloadError?.message || 'nepavyko atsisiųsti'}`
+          );
           continue;
         }
 
         const defect = defectsMap.get(photo.defect_id) || {};
-        const dateFolder = formatDateFolder(defect.created_at || photo.created_at);
+        const dateFolder = formatDateFolder(
+          defect.created_at || photo.created_at
+        );
         const cmr = safeFilePart(defect.cmr_number, 'be-cmr');
         const truck = safeFilePart(defect.truck_number, 'be-vilkiko');
-        const defectFolder = `${dateFolder}/${cmr}_${truck}_${safeFilePart(photo.defect_id, 'defektas')}`;
-        const originalName = safeFilePart(photo.file_name || photo.file_path.split('/').pop() || 'photo.jpg', 'photo.jpg');
-        const category = safeFilePart(photo.category || 'foto', 'foto');
-        const baseName = `${defectFolder}/${category}_${originalName}`;
+
+        const defectFolder =
+          `${dateFolder}/${cmr}_${truck}_${safeFilePart(photo.defect_id, 'defektas')}`;
+
+        const originalName = safeFilePart(
+          photo.file_name ||
+          photo.file_path.split('/').pop() ||
+          'photo.jpg',
+          'photo.jpg'
+        );
+
+        const category = safeFilePart(
+          photo.category || 'foto',
+          'foto'
+        );
+
+        const baseName =
+          `${defectFolder}/${category}_${originalName}`;
+
         const usedCount = usedNames.get(baseName) || 0;
-        const finalName = usedCount ? baseName.replace(/(\.[^.]+)?$/, `_${usedCount}$1`) : baseName;
+
+        const finalName = usedCount
+          ? baseName.replace(/(\.[^.]+)?$/, `_${usedCount}$1`)
+          : baseName;
 
         usedNames.set(baseName, usedCount + 1);
         zip.file(finalName, blob);
@@ -1228,35 +1274,57 @@ export async function initNustatymai({ supabase, user, profile }) {
       }
 
       if (!successfulIds.length) {
-        setExportMessage('Nepavyko atsisiųsti nė vienos nuotraukos. Patikrink Storage teises arba bucket pavadinimą.', 'error');
+        setExportMessage(
+          'Nepavyko atsisiųsti nė vienos nuotraukos. ' +
+          'Patikrink Storage teises arba bucket pavadinimą.',
+          'error'
+        );
         return;
       }
 
       setExportMessage('Kuriamas ZIP failas...', 'info');
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const fileName = `defektu-nuotraukos-${new Date().toISOString().slice(0, 10)}.zip`;
+      const fileName =
+        `defektu-nuotraukos-${new Date().toISOString().slice(0, 10)}.zip`;
 
       createDownload(zipBlob, fileName);
 
       lastExportedPhotoIds = successfulIds;
-      localStorage.setItem(LAST_EXPORT_IDS_KEY, JSON.stringify(successfulIds));
+      localStorage.setItem(
+        LAST_EXPORT_IDS_KEY,
+        JSON.stringify(successfulIds)
+      );
 
       const message = [
         `ZIP paruoštas: ${fileName}`,
         `Nuotraukų ZIP faile: ${successfulIds.length}`,
-        failed.length ? `Nepavyko atsisiųsti: ${failed.length}` : '',
-        'Įkelk ZIP arba išarchyvuotas nuotraukas į SharePoint, tada spausk „Pažymėti paskutinį ZIP kaip perkeltą“.',
+        failed.length
+          ? `Nepavyko atsisiųsti: ${failed.length}`
+          : '',
+        'Įkelk ZIP arba išarchyvuotas nuotraukas į SharePoint, tada spausk „Pažymėti paskutinį ZIP kaip perkeltą“.'
       ].filter(Boolean).join('\n');
 
-      setExportMessage(message, failed.length ? 'warning' : 'success');
+      setExportMessage(
+        message,
+        failed.length ? 'warning' : 'success'
+      );
 
     } catch (err) {
       console.error('Defect photos ZIP export error:', err);
-      setExportMessage(err?.message || 'Nepavyko sukurti ZIP failo.', 'error');
+      setExportMessage(
+        err?.message || 'Nepavyko sukurti ZIP failo.',
+        'error'
+      );
 
     } finally {
-      setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], false);
+      setButtonsDisabled([
+        refreshDefectPhotosExportBtn,
+        downloadDefectPhotosZipBtn,
+        markLastDefectPhotosExportedBtn,
+        deleteExportedDefectPhotosBtn
+      ], false);
+
       await updateDefectPhotosExportStats();
     }
   }
@@ -1264,18 +1332,34 @@ export async function initNustatymai({ supabase, user, profile }) {
   async function markLastDefectPhotosExported() {
     if (!isAdmin) return;
 
-    const storedIds = JSON.parse(localStorage.getItem(LAST_EXPORT_IDS_KEY) || '[]');
-    const ids = lastExportedPhotoIds.length ? lastExportedPhotoIds : storedIds;
+    const storedIds = JSON.parse(
+      localStorage.getItem(LAST_EXPORT_IDS_KEY) || '[]'
+    );
+
+    const ids = lastExportedPhotoIds.length
+      ? lastExportedPhotoIds
+      : storedIds;
 
     if (!ids.length) {
-      alert('Pirma atsisiųsk ZIP failą. Tada galėsi pažymėti nuotraukas kaip perkeltas.');
+      alert(
+        'Pirma atsisiųsk ZIP failą. Tada galėsi pažymėti nuotraukas kaip perkeltas.'
+      );
       return;
     }
 
-    const confirmed = confirm(`Pažymėti ${ids.length} paskutinio ZIP nuotraukų kaip perkeltas į SharePoint?`);
+    const confirmed = confirm(
+      `Pažymėti ${ids.length} paskutinio ZIP nuotraukų kaip perkeltas į SharePoint?`
+    );
+
     if (!confirmed) return;
 
-    setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], true);
+    setButtonsDisabled([
+      refreshDefectPhotosExportBtn,
+      downloadDefectPhotosZipBtn,
+      markLastDefectPhotosExportedBtn,
+      deleteExportedDefectPhotosBtn
+    ], true);
+
     setExportMessage('Žymima kaip perkelta...', 'info');
 
     try {
@@ -1294,14 +1378,26 @@ export async function initNustatymai({ supabase, user, profile }) {
       localStorage.removeItem(LAST_EXPORT_IDS_KEY);
       lastExportedPhotoIds = [];
 
-      setExportMessage('Nuotraukos pažymėtos kaip perkeltos į SharePoint.', 'success');
+      setExportMessage(
+        'Nuotraukos pažymėtos kaip perkeltos į SharePoint.',
+        'success'
+      );
 
     } catch (err) {
       console.error('Mark exported error:', err);
-      setExportMessage(err?.message || 'Nepavyko pažymėti kaip perkeltų.', 'error');
+      setExportMessage(
+        err?.message || 'Nepavyko pažymėti kaip perkeltų.',
+        'error'
+      );
 
     } finally {
-      setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], false);
+      setButtonsDisabled([
+        refreshDefectPhotosExportBtn,
+        downloadDefectPhotosZipBtn,
+        markLastDefectPhotosExportedBtn,
+        deleteExportedDefectPhotosBtn
+      ], false);
+
       await updateDefectPhotosExportStats();
     }
   }
@@ -1312,7 +1408,10 @@ export async function initNustatymai({ supabase, user, profile }) {
     const photos = await loadPhotosForExport({ exported: true });
 
     if (!photos.length) {
-      setExportMessage('Nėra perkeltų nuotraukų, kurias būtų galima ištrinti iš Storage.', 'warning');
+      setExportMessage(
+        'Nėra perkeltų nuotraukų, kurias būtų galima ištrinti iš Storage.',
+        'warning'
+      );
       return;
     }
 
@@ -1323,11 +1422,19 @@ export async function initNustatymai({ supabase, user, profile }) {
 
     if (!confirmed) return;
 
-    setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], true);
+    setButtonsDisabled([
+      refreshDefectPhotosExportBtn,
+      downloadDefectPhotosZipBtn,
+      markLastDefectPhotosExportedBtn,
+      deleteExportedDefectPhotosBtn
+    ], true);
+
     setExportMessage('Trinama iš Supabase Storage...', 'info');
 
     try {
-      const filePaths = photos.map(photo => photo.file_path).filter(Boolean);
+      const filePaths = photos
+        .map(photo => photo.file_path)
+        .filter(Boolean);
 
       for (const pathsChunk of chunkArray(filePaths, 100)) {
         const { error } = await supabase
@@ -1338,7 +1445,10 @@ export async function initNustatymai({ supabase, user, profile }) {
         if (error) throw error;
       }
 
-      for (const idsChunk of chunkArray(photos.map(photo => photo.id), 100)) {
+      for (const idsChunk of chunkArray(
+        photos.map(photo => photo.id),
+        100
+      )) {
         const { error } = await supabase
           .from('defect_photos')
           .update({
@@ -1350,23 +1460,50 @@ export async function initNustatymai({ supabase, user, profile }) {
         if (error) throw error;
       }
 
-      setExportMessage('Perkeltos nuotraukos ištrintos iš Supabase Storage.', 'success');
+      setExportMessage(
+        'Perkeltos nuotraukos ištrintos iš Supabase Storage.',
+        'success'
+      );
 
     } catch (err) {
       console.error('Delete exported photos error:', err);
-      setExportMessage(err?.message || 'Nepavyko ištrinti nuotraukų iš Storage.', 'error');
+      setExportMessage(
+        err?.message || 'Nepavyko ištrinti nuotraukų iš Storage.',
+        'error'
+      );
 
     } finally {
-      setButtonsDisabled([refreshDefectPhotosExportBtn, downloadDefectPhotosZipBtn, markLastDefectPhotosExportedBtn, deleteExportedDefectPhotosBtn], false);
+      setButtonsDisabled([
+        refreshDefectPhotosExportBtn,
+        downloadDefectPhotosZipBtn,
+        markLastDefectPhotosExportedBtn,
+        deleteExportedDefectPhotosBtn
+      ], false);
+
       await updateDefectPhotosExportStats();
     }
   }
 
   if (isAdmin) {
-    refreshDefectPhotosExportBtn?.addEventListener('click', updateDefectPhotosExportStats);
-    downloadDefectPhotosZipBtn?.addEventListener('click', downloadDefectPhotosZip);
-    markLastDefectPhotosExportedBtn?.addEventListener('click', markLastDefectPhotosExported);
-    deleteExportedDefectPhotosBtn?.addEventListener('click', deleteExportedDefectPhotos);
+    refreshDefectPhotosExportBtn?.addEventListener(
+      'click',
+      updateDefectPhotosExportStats
+    );
+
+    downloadDefectPhotosZipBtn?.addEventListener(
+      'click',
+      downloadDefectPhotosZip
+    );
+
+    markLastDefectPhotosExportedBtn?.addEventListener(
+      'click',
+      markLastDefectPhotosExported
+    );
+
+    deleteExportedDefectPhotosBtn?.addEventListener(
+      'click',
+      deleteExportedDefectPhotos
+    );
 
     await updateDefectPhotosExportStats();
   }
