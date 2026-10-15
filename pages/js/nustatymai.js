@@ -726,11 +726,13 @@ export async function initNustatymai({ supabase, user, profile }) {
     if (!isAdmin) return;
 
     const { data, error } = await supabase
-      .from('dashboard_images')
-      .select('id, image_url, file_path, title, sort_order, is_active, created_at')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
+  .from('dashboard_images')
+  .select('id, image_url, file_path, title, sort_order, is_active, created_at')
+  .eq('is_active', true)
+  .eq('transport_mode', transportMode)
+  .order('sort_order', { ascending: true })
+  .order('created_at', { ascending: false })
+  .limit(3);
 
     if (error) {
       console.error('Dashboard images load error:', error);
@@ -780,22 +782,8 @@ export async function initNustatymai({ supabase, user, profile }) {
       .replace(/^-|-$/g, '') || 'dashboard.jpg';
   }
 
-  async function removeOldDashboardFiles() {
-    const filePaths = dashboardImages
-      .map(img => img.file_path)
-      .filter(Boolean);
-
-    if (!filePaths.length) return;
-
-    const { error } = await supabase
-      .storage
-      .from('dashboard-images')
-      .remove(filePaths);
-
-    if (error) {
-      console.warn('Old dashboard files remove skipped:', error);
-    }
-  }
+  // GBY_DASHBOARD_SAFE_SAVE_V2
+  // Naujas rinkinys issaugomas pries salinant sena.
 
   await loadDashboardImages();
   renderDashboardPreview();
@@ -807,18 +795,20 @@ export async function initNustatymai({ supabase, user, profile }) {
     const files = Array.from(input?.files || []);
 
     if (!files.length) {
-      alert('Pasirink JPEG');
+      alert('Pasirinkite JPEG paveikslelius');
       return;
     }
 
     if (files.length > 3) {
-      alert('Galima įkelti iki 3 paveikslėlių');
+      alert('Galima ikelti iki 3 paveiksleliu');
       return;
     }
 
     const invalidFile = files.find(file => {
       const name = file.name.toLowerCase();
-      return !file.type.includes('jpeg') && !name.endsWith('.jpg') && !name.endsWith('.jpeg');
+      return !file.type.includes('jpeg') &&
+        !name.endsWith('.jpg') &&
+        !name.endsWith('.jpeg');
     });
 
     if (invalidFile) {
@@ -827,33 +817,30 @@ export async function initNustatymai({ supabase, user, profile }) {
     }
 
     const saveBtn = document.getElementById('saveDashboardImages');
-    const originalText = saveBtn?.textContent || 'Išsaugoti dashboard';
+    const originalText = saveBtn?.textContent || 'Issaugoti';
+
+    const oldImages = dashboardImages.map(img => ({ ...img }));
+    const uploadedPaths = [];
+    let newRowsSaved = false;
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.classList.add('opacity-60', 'cursor-not-allowed');
       saveBtn.textContent = 'Saugoma...';
     }
 
     try {
-      await removeOldDashboardFiles();
-
-      const { error: deleteError } = await supabase
-        .from('dashboard_images')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (deleteError) {
-        console.error('Dashboard delete error:', deleteError);
-        alert('Nepavyko išvalyti senų dashboard paveikslėlių');
-        return;
-      }
-
       const rows = [];
 
+      // 1. Pirmiausia ikeliame VISUS naujus failus.
       for (const [index, file] of files.entries()) {
         const safeName = getSafeFileName(file.name);
-        const filePath = `${currentUser.id}/${Date.now()}-${index}-${safeName}`;
+
+        const uniquePart =
+          Date.now() + '-' +
+          Math.random().toString(36).slice(2, 10);
+
+        const filePath =
+          `${currentUser.id}/${transportMode}/${uniquePart}-${index}-${safeName}`;
 
         const { error: uploadError } = await supabase
           .storage
@@ -861,14 +848,16 @@ export async function initNustatymai({ supabase, user, profile }) {
           .upload(filePath, file, {
             cacheControl: '3600',
             contentType: file.type || 'image/jpeg',
-            upsert: true
+            upsert: false
           });
 
         if (uploadError) {
-          console.error('Dashboard upload error:', uploadError);
-          alert('Nepavyko įkelti dashboard paveikslėlio į Storage');
-          return;
+          throw new Error(
+            'Storage: ' + uploadError.message
+          );
         }
+
+        uploadedPaths.push(filePath);
 
         const { data: publicData } = supabase
           .storage
@@ -881,18 +870,67 @@ export async function initNustatymai({ supabase, user, profile }) {
           title: `Dashboard ${index + 1}`,
           sort_order: index,
           is_active: true,
+          transport_mode: transportMode,
           created_by: currentUser.id
         });
       }
 
+      // 2. Issaugome naujus irasus duomenu bazeje.
       const { error: insertError } = await supabase
         .from('dashboard_images')
         .insert(rows);
 
       if (insertError) {
-        console.error('Dashboard insert error:', insertError);
-        alert('Nepavyko išsaugoti dashboard paveikslėlių');
-        return;
+        throw new Error(
+          'Duomenu baze: ' + insertError.message
+        );
+      }
+
+      newRowsSaved = true;
+
+      // 3. Tik dabar saliname SENO rinkinio irasus.
+      const oldIds = oldImages
+        .map(img => img.id)
+        .filter(Boolean);
+
+      let oldRowsDeleted = true;
+
+      if (oldIds.length) {
+        const { error: deleteError } = await supabase
+          .from('dashboard_images')
+          .delete()
+          .in('id', oldIds)
+          .eq('transport_mode', transportMode);
+
+        if (deleteError) {
+          oldRowsDeleted = false;
+          console.error(
+            'Senu dashboard irasu trynimo klaida:',
+            deleteError
+          );
+        }
+      }
+
+      // 4. Senus Storage failus saliname tik jei
+      //    senu DB irasu trynimas pavyko.
+      if (oldRowsDeleted) {
+        const oldPaths = oldImages
+          .map(img => img.file_path)
+          .filter(Boolean);
+
+        if (oldPaths.length) {
+          const { error: removeError } = await supabase
+            .storage
+            .from('dashboard-images')
+            .remove(oldPaths);
+
+          if (removeError) {
+            console.warn(
+              'Senu Storage failu pasalinti nepavyko:',
+              removeError
+            );
+          }
+        }
       }
 
       if (input) input.value = '';
@@ -900,22 +938,48 @@ export async function initNustatymai({ supabase, user, profile }) {
       await loadDashboardImages();
       renderDashboardPreview();
 
-      alert('Dashboard atnaujintas!');
-      window.navigateTo('dashboard');
+      if (!oldRowsDeleted) {
+        alert(
+          'Nauji paveiksleliai issaugoti, bet senu irasu ' +
+          'nepavyko pasalinti. Patikrinkite Console.'
+        );
+      } else {
+        alert('Dashboard atnaujintas!');
+      }
+
+      await window.navigateTo('dashboard');
 
     } catch (err) {
       console.error('Dashboard save error:', err);
-      alert(err?.message || 'Dashboard išsaugojimo klaida');
+
+      // Jei DB irasai dar nesukurti, pasaliname
+      // tik siuo bandymu ikeltus failus.
+      if (!newRowsSaved && uploadedPaths.length) {
+        const { error: cleanupError } = await supabase
+          .storage
+          .from('dashboard-images')
+          .remove(uploadedPaths);
+
+        if (cleanupError) {
+          console.warn(
+            'Nepavyko isvalyti nepanaudotu failu:',
+            cleanupError
+          );
+        }
+      }
+
+      alert(
+        'Nepavyko issaugoti paveiksleliu:\n\n' +
+        (err?.message || 'Nezinoma klaida')
+      );
 
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.classList.remove('opacity-60', 'cursor-not-allowed');
         saveBtn.textContent = originalText;
       }
     }
   });
-
   // ==========================================================
   // DEFEKTŲ NUOTRAUKŲ EXPORT
   // ==========================================================
