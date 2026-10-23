@@ -552,15 +552,21 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   }
 
   function getSelectedTaskUserValues() {
-    const select = document.getElementById('taskUser');
-    if (!select) return ['all'];
+  const select = document.getElementById('taskUser');
+  if (!select) return [];
 
-    const values = Array.from(select.selectedOptions || [])
-      .map(option => option.value)
-      .filter(Boolean);
+  const values = Array.from(select.selectedOptions || [])
+    .map(option => option.value)
+    .filter(Boolean);
 
-    return values.length ? values : ['all'];
+  // Jeigu pasirinkti konkretūs vairuotojai,
+  // pašaliname pasirinkimą „Visiems“.
+  if (values.some(value => value !== 'all')) {
+    return values.filter(value => value !== 'all');
   }
+
+  return values;
+}
 
 
   function ensureDriverPickerStyles() {
@@ -756,27 +762,41 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   }
 
   function getDriverPickerSelectedValues() {
-    const select = getTaskUserSelect();
-    if (!select) return ['all'];
+  const select = getTaskUserSelect();
+  if (!select) return [];
 
-    const values = Array.from(select.selectedOptions || [])
-      .map(option => option.value)
-      .filter(Boolean);
+  const values = Array.from(select.selectedOptions || [])
+    .map(option => String(option.value))
+    .filter(Boolean);
 
-    return values.length ? values : ['all'];
+  // Konkretūs vairuotojai turi pirmenybę prieš „Visiems“.
+  const specificValues = values.filter(value => value !== 'all');
+
+  if (specificValues.length > 0) {
+    return specificValues;
   }
+
+  return values.includes('all') ? ['all'] : [];
+}
 
   function setDriverPickerSelectedValues(values) {
-    const select = getTaskUserSelect();
-    if (!select) return;
+  const select = getTaskUserSelect();
+  if (!select) return;
 
-    const valueSet = new Set(values.map(value => String(value)));
+  const valueSet = new Set(
+    (values || []).map(value => String(value))
+  );
 
-    Array.from(select.options).forEach(option => {
-      option.selected = valueSet.has(String(option.value));
-    });
+  // Jei pasirinktas bent vienas konkretus vairuotojas
+  // arba grupė, pašaliname "Visiems".
+  if ([...valueSet].some(value => value !== 'all')) {
+    valueSet.delete('all');
   }
 
+  Array.from(select.options).forEach(option => {
+    option.selected = valueSet.has(String(option.value));
+  });
+}
   function getDriverPickerOptionsForRender() {
     const select = getTaskUserSelect();
     if (!select) return [];
@@ -928,7 +948,36 @@ document.addEventListener('click', event => {
     closeDriverPicker();
   }
 });
+document.addEventListener('change', event => {
+  const checkbox = event.target.closest('.task-driver-picker-checkbox');
+  if (!checkbox) return;
 
+  const value = String(checkbox.dataset.value || '');
+  const currentValues = getDriverPickerSelectedValues()
+    .filter(item => item !== 'all');
+
+  const selected = new Set(currentValues);
+
+  if (value === 'all') {
+    setDriverPickerSelectedValues(['all']);
+    renderDriverPicker();
+    return;
+  }
+
+  if (checkbox.checked) {
+    selected.add(value);
+  } else {
+    selected.delete(value);
+  }
+
+  setDriverPickerSelectedValues(Array.from(selected));
+  renderDriverPicker();
+});
+document.addEventListener('input', event => {
+  if (event.target?.id === 'taskDriverPickerSearch') {
+    renderDriverPicker();
+  }
+});
 window.addEventListener('resize', () => {
   const menu = document.getElementById('taskDriverPickerMenu');
 
@@ -973,7 +1022,7 @@ window.addEventListener('resize', () => {
 
     const validValues = new Set(Array.from(select.options).map(option => option.value));
     const restoredValues = currentValues.filter(value => validValues.has(value));
-    const valuesToSelect = restoredValues.length ? restoredValues : ['all'];
+    const valuesToSelect = restoredValues;
 
     Array.from(select.options).forEach(option => {
       option.selected = valuesToSelect.includes(option.value);
@@ -3638,40 +3687,62 @@ window.addEventListener('resize', () => {
   });
 
   function getSelectedTargetDrivers(selectedUserValues) {
-    const normalDrivers = getLanguageFilteredDrivers();
+  const normalDrivers = getLanguageFilteredDrivers();
 
-    if (selectedUserValues.includes('all')) {
-      return {
-        targetDrivers: normalDrivers,
-        groupId: null
-      };
-    }
+  const values = [...new Set(
+    (selectedUserValues || []).map(value => String(value))
+  )];
 
-    const selectedDriverIds = new Set();
-    const selectedGroupIds = [];
-
-    selectedUserValues.forEach(value => {
-      if (value.startsWith('group:')) {
-        selectedGroupIds.push(value.replace('group:', ''));
-        return;
-      }
-
-      selectedDriverIds.add(value);
-    });
-
-    selectedGroupIds.forEach(selectedGroupId => {
-      const group = groups.find(item => String(item.id) === String(selectedGroupId));
-
-      (group?.driverIds || []).forEach(driverId => {
-        selectedDriverIds.add(driverId);
-      });
-    });
-
+  // Jeigu niekas nepasirinkta, užduotis niekam nesiunčiama.
+  if (values.length === 0) {
     return {
-      targetDrivers: normalDrivers.filter(driver => selectedDriverIds.has(driver.id)),
-      groupId: selectedGroupIds.length === 1 && selectedDriverIds.size === 0 ? selectedGroupIds[0] : null
+      targetDrivers: [],
+      groupId: null
     };
   }
+
+  // Jeigu pasirinkti konkretūs vairuotojai arba grupės,
+  // ignoruojame atsitiktinai likusį "all".
+  const specificValues = values.filter(value => value !== 'all');
+
+  if (specificValues.length === 0 && values.includes('all')) {
+    return {
+      targetDrivers: normalDrivers,
+      groupId: null
+    };
+  }
+
+  const selectedDriverIds = new Set();
+  const selectedGroupIds = [];
+
+  specificValues.forEach(value => {
+    if (value.startsWith('group:')) {
+      selectedGroupIds.push(value.replace('group:', ''));
+    } else {
+      selectedDriverIds.add(value);
+    }
+  });
+
+  selectedGroupIds.forEach(groupId => {
+    const group = groups.find(
+      item => String(item.id) === String(groupId)
+    );
+
+    (group?.driverIds || []).forEach(driverId => {
+      selectedDriverIds.add(String(driverId));
+    });
+  });
+
+  return {
+    targetDrivers: normalDrivers.filter(driver =>
+      selectedDriverIds.has(String(driver.id))
+    ),
+    groupId: selectedGroupIds.length === 1 &&
+             specificValues.length === 1
+      ? selectedGroupIds[0]
+      : null
+  };
+}
 
   async function createTask() {
     if (!canCreate) return;
