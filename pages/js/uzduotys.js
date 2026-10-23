@@ -607,11 +607,9 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
       }
 
       .task-driver-picker-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        right: 0;
-        z-index: 9999;
+        position: fixed;
+        z-index: 99999;
+        max-width: calc(100vw - 16px);
         background: #0f172a;
         border: 1px solid rgba(71, 85, 105, 0.95);
         border-radius: 16px;
@@ -692,43 +690,66 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
   }
 
   function ensureDriverPickerUi() {
-    const select = document.getElementById('taskUser');
-    if (!select) return null;
+  const select = document.getElementById('taskUser');
+  if (!select) return null;
 
-    ensureDriverPickerStyles();
+  ensureDriverPickerStyles();
 
-    let picker = document.getElementById('taskDriverPicker');
+  let picker = document.getElementById('taskDriverPicker');
 
-    if (!picker) {
-      picker = document.createElement('div');
-      picker.id = 'taskDriverPicker';
-      picker.className = 'task-driver-picker';
+  if (!picker) {
+    picker = document.createElement('div');
+    picker.id = 'taskDriverPicker';
+    picker.className = 'task-driver-picker';
 
-      picker.innerHTML = `
-        <button type="button" class="task-driver-picker-toggle" id="taskDriverPickerToggle">
-          <span class="task-driver-picker-label" id="taskDriverPickerLabel">Visiems pagal instr. kalba</span>
-          <span class="task-driver-picker-arrow">v</span>
-        </button>
+    picker.innerHTML = `
+      <button
+        type="button"
+        class="task-driver-picker-toggle"
+        id="taskDriverPickerToggle"
+        aria-expanded="false"
+      >
+        <span class="task-driver-picker-label" id="taskDriverPickerLabel">
+          Visiems pagal instr. kalba
+        </span>
+        <span class="task-driver-picker-arrow">v</span>
+      </button>
 
-        <div class="task-driver-picker-menu hidden" id="taskDriverPickerMenu">
-          <input
-            type="text"
-            class="task-driver-picker-search"
-            id="taskDriverPickerSearch"
-            placeholder="Ieskoti vairuotojo..." autocomplete="off"
-          >
+      <div class="task-driver-picker-menu hidden" id="taskDriverPickerMenu">
+        <input
+          type="text"
+          class="task-driver-picker-search"
+          id="taskDriverPickerSearch"
+          placeholder="Ieskoti vairuotojo..."
+          autocomplete="off"
+        >
+        <div class="task-driver-picker-options" id="taskDriverPickerOptions"></div>
+      </div>
+    `;
 
-          <div class="task-driver-picker-options" id="taskDriverPickerOptions"></div>
-        </div>
-      `;
-
-      select.insertAdjacentElement('afterend', picker);
-    }
-
-    select.style.display = 'none';
-
-    return picker;
+    select.insertAdjacentElement('afterend', picker);
   }
+
+  const menu = document.getElementById('taskDriverPickerMenu');
+
+  if (menu && menu.parentElement !== document.body) {
+    document.body.appendChild(menu);
+  }
+
+  const button = document.getElementById('taskDriverPickerToggle');
+
+  if (button) {
+    button.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleDriverPicker();
+    };
+  }
+
+  select.style.display = 'none';
+
+  return picker;
+}
 
   function getTaskUserSelect() {
     return document.getElementById('taskUser');
@@ -846,65 +867,75 @@ export async function initUzduotys({ supabase, user, profile } = {}) {
     updateDriverPickerLabel();
   }
 
-  function closeDriverPicker() {
-    document.getElementById('taskDriverPickerMenu')?.classList.add('hidden');
+ function closeDriverPicker() {
+  const menu = document.getElementById('taskDriverPickerMenu');
+  menu?.classList.add('hidden');
+
+  document.getElementById('taskDriverPickerToggle')
+    ?.setAttribute('aria-expanded', 'false');
+}
+
+function positionDriverPickerMenu() {
+  const menu = document.getElementById('taskDriverPickerMenu');
+  const button = document.getElementById('taskDriverPickerToggle');
+
+  if (!menu || !button) return;
+
+  const rect = button.getBoundingClientRect();
+  const width = Math.min(
+    Math.max(rect.width, 320),
+    window.innerWidth - 16
+  );
+
+  menu.style.width = `${width}px`;
+  menu.style.left = `${Math.max(
+    8,
+    Math.min(rect.left, window.innerWidth - width - 8)
+  )}px`;
+  menu.style.right = 'auto';
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.maxHeight = `${Math.max(
+    120,
+    window.innerHeight - rect.bottom - 14
+  )}px`;
+  menu.style.overflowY = 'auto';
+}
+
+function toggleDriverPicker() {
+  const menu = document.getElementById('taskDriverPickerMenu');
+  if (!menu) return;
+
+  const opening = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !opening);
+
+  document.getElementById('taskDriverPickerToggle')
+    ?.setAttribute('aria-expanded', String(opening));
+
+  if (opening) {
+    positionDriverPickerMenu();
+
+    setTimeout(() => {
+      document.getElementById('taskDriverPickerSearch')?.focus();
+    }, 50);
   }
+}
 
-  function toggleDriverPicker() {
-    const menu = document.getElementById('taskDriverPickerMenu');
-    if (!menu) return;
+document.addEventListener('click', event => {
+  const insidePicker = event.target.closest('#taskDriverPicker');
+  const insideMenu = event.target.closest('#taskDriverPickerMenu');
 
-    menu.classList.toggle('hidden');
-
-    if (!menu.classList.contains('hidden')) {
-      setTimeout(() => document.getElementById('taskDriverPickerSearch')?.focus(), 50);
-    }
+  if (!insidePicker && !insideMenu) {
+    closeDriverPicker();
   }
+});
 
-  document.addEventListener('click', event => {
-    const toggle = event.target.closest('#taskDriverPickerToggle');
-    const picker = event.target.closest('#taskDriverPicker');
+window.addEventListener('resize', () => {
+  const menu = document.getElementById('taskDriverPickerMenu');
 
-    if (toggle) {
-      toggleDriverPicker();
-      return;
-    }
-
-    if (!picker) {
-      closeDriverPicker();
-    }
-  });
-
-  document.addEventListener('input', event => {
-    if (event.target?.id === 'taskDriverPickerSearch') {
-      renderDriverPicker();
-    }
-  });
-
-  document.addEventListener('change', event => {
-    const checkbox = event.target.closest('.task-driver-picker-checkbox');
-    if (!checkbox) return;
-
-    const value = String(checkbox.dataset.value || '');
-    const currentValues = getDriverPickerSelectedValues().filter(item => item !== 'all');
-    const selected = new Set(currentValues);
-
-    if (value === 'all') {
-      setDriverPickerSelectedValues(['all']);
-      renderDriverPicker();
-      return;
-    }
-
-    if (checkbox.checked) {
-      selected.add(value);
-    } else {
-      selected.delete(value);
-    }
-
-    const newValues = selected.size ? Array.from(selected) : ['all'];
-    setDriverPickerSelectedValues(newValues);
-    renderDriverPicker();
-  });
+  if (menu && !menu.classList.contains('hidden')) {
+    positionDriverPickerMenu();
+  }
+});
 
   function fillTaskUsers() {
     const select = document.getElementById('taskUser');
